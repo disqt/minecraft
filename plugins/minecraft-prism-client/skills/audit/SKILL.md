@@ -10,11 +10,22 @@ REQUIRED SUB-SKILL: version-refresh
 
 Entry point for a full modset refresh. Creates the shared decision doc, then invokes meta-refresh. The skills chain automatically: meta-refresh → version-refresh → background executor.
 
+## Paths
+
+Detect the user's OS and resolve these automatically. Ask only if detection fails.
+
+| Variable | Windows | Linux | macOS |
+|----------|---------|-------|-------|
+| `{PRISM_INSTANCES}` | `%APPDATA%/PrismLauncher/instances/` | `~/.local/share/PrismLauncher/instances/` | `~/Library/Application Support/PrismLauncher/instances/` |
+| `{PRISM_EXE}` | `prismlauncher.exe` (find via `where` or check `%LOCALAPPDATA%/Programs/PrismLauncher/`) | `prismlauncher` (in PATH) | `/Applications/PrismLauncher.app/Contents/MacOS/prismlauncher` |
+
+Pass resolved paths to all sub-skills. Sub-skills should never hardcode OS-specific paths.
+
 ## Inputs
 
 Ask for any of these not already provided:
 
-- **Prism instance name** — auto-detect by listing `C:/Users/leole/AppData/Roaming/PrismLauncher/instances/`
+- **Prism instance name** — auto-detect by listing `{PRISM_INSTANCES}`
 - **Target MC version** — e.g. `1.21.11`
 - **Modloader** — default: `Fabric`
 - **Player profile** — default: vanilla+ Fabric client (performance, subtlety, no gameplay changes)

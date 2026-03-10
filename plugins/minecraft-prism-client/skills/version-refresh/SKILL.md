@@ -13,7 +13,7 @@ Check every mod in a Prism Launcher instance for version updates, present a numb
 
 Ask for any of these not already provided:
 
-- **Prism instance name** — default: auto-detect by listing `C:/Users/leole/AppData/Roaming/PrismLauncher/instances/` and asking the user to pick one.
+- **Prism instance name** — default: auto-detect by listing `{PRISM_INSTANCES}` and asking the user to pick one.
 - **Target MC version** — e.g. `1.21.11`. Required; ask explicitly if missing.
 - **Modloader** — Fabric or NeoForge. Infer from `mmc-pack.json` inside the instance if possible; otherwise ask.
 - **Decision doc path** — if passed from meta-refresh, use it. Otherwise: `./minecraft-audits/prism-<instance-name>-YYYY-MM-DD.md` (create if not exists).
@@ -26,7 +26,7 @@ No files are written in this section.
 
 ### Step 1 — Read the mods folder
 
-Scan: `C:/Users/leole/AppData/Roaming/PrismLauncher/instances/<instance-name>/.minecraft/mods/`
+Scan: `{PRISM_INSTANCES}/<instance-name>/.minecraft/mods/`
 
 - List every `.jar` and `.jar.disabled` file.
 - Extract mod name and current version from filename (best-effort; filenames are often `modname-mcversion-modversion.jar`).

@@ -14,12 +14,12 @@ Audit a Prism Launcher Fabric instance to determine whether each mod is still be
 
 Ask for any of these not already provided:
 
-- **Prism instance name** — auto-detect by listing `C:/Users/leole/AppData/Roaming/PrismLauncher/instances/`
+- **Prism instance name** — auto-detect by listing `{PRISM_INSTANCES}`
 - **Target MC version** — e.g. `1.21.11`
 - **Modloader** — default: `Fabric`
 - **Player profile** — default: vanilla+ Fabric client (performance, subtlety, no gameplay changes). Explicitly excluded: minimap/world map mods, block/entity info overlays (Jade, WAILA, etc.), persistent HUD overlays if BetterF3 or equivalent is already present, any mod that reveals world information not accessible in vanilla.
 - **Reference packs** — default: DisruptiveBuilds REFINED (`dbs-minecraft-refined`) and PLUS (`dbs-minecraft-plus`) on Modrinth
-- **Server SSH host** *(optional)* — e.g. `minecraft`. If provided, check server plugins via `ssh <host> "ls /home/minecraft/serverfiles/plugins/"` to determine which server-side companions are active (DHSupport enables DH LOD sync; Lithium and Krypton are primarily server-side — client-only installs have partial benefit).
+- **Server SSH host** *(optional)* — e.g. `minecraft`. If provided, check server plugins via `ssh <host> "ls {SERVER_PLUGINS_DIR}"` to determine which server-side companions are active (DHSupport enables DH LOD sync; Lithium and Krypton are primarily server-side — client-only installs have partial benefit).
 - **Decision doc path** — if passed from audit, use it. Otherwise: `./minecraft-audits/prism-<instance-name>-YYYY-MM-DD.md` (create if not exists)
 
 ---
@@ -32,7 +32,7 @@ No files are written in this section.
 
 If a server host was provided, fetch active plugins:
 ```bash
-ssh <host> "ls /home/minecraft/serverfiles/plugins/"
+ssh <host> "ls {SERVER_PLUGINS_DIR}"
 ```
 Note server-side companions — affects verdicts for client mods with server-side counterparts (e.g. DHSupport enables DH LOD sync, Lithium/Krypton have server-side performance components).
 

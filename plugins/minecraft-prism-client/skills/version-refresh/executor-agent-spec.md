@@ -1,12 +1,26 @@
 # Executor Agent Spec
 
-Background agent dispatched after version-refresh Step 5. Receives: decision doc path, instance name, MC version, modloader.
+Background agent dispatched after version-refresh Step 5. Receives: decision doc path, instance name, MC version, modloader, and resolved paths (`{PRISM_INSTANCES}`, `{PRISM_EXE}`).
 
 **Model note:** This agent makes many judgment calls (version lookups, naming, failure handling). For best results, run the parent session with Opus (`/model`).
 
 **REQUIRED SUB-SKILL:** superpowers:dispatching-parallel-agents — use for Steps 6 and 7 (download agents, config research agents).
 
 **REQUIRED SUB-SKILL:** superpowers:systematic-debugging — invoke when any step produces unexpected results (download failures, config errors, boot verification failures not covered by known patterns) before retrying or escalating.
+
+---
+
+## Inputs
+
+These are passed from the parent skill. Never hardcode OS-specific paths.
+
+- **Decision doc path** — path to the audit decision doc
+- **Instance name** — e.g. `1.21.11 v1.1`
+- **MC version** — e.g. `1.21.11`
+- **Modloader** — e.g. `Fabric`
+- **`{PRISM_INSTANCES}`** — resolved Prism instances directory
+- **`{PRISM_EXE}`** — resolved Prism executable path
+- **Publish config** *(optional)* — VPS SSH alias, remote dir, and base URL for modpack hosting. If not provided, skip Step 12.
 
 ---
 
@@ -30,8 +44,14 @@ Wait for the user's response before proceeding.
 
 ### 3. Clone the instance
 
+**Windows:**
 ```
-xcopy /E /I /H "<old-instance-path>" "<new-instance-path>"
+xcopy /E /I /H "{PRISM_INSTANCES}/<old-instance>" "{PRISM_INSTANCES}/<new-instance>"
+```
+
+**Linux/macOS:**
+```bash
+cp -a "{PRISM_INSTANCES}/<old-instance>" "{PRISM_INSTANCES}/<new-instance>"
 ```
 
 **Naming rules:**
@@ -70,7 +90,7 @@ These two can happen concurrently:
 
 Dispatch a boot verification agent (`run_in_background: false`, wait for result).
 
-Read `./boot-verification-agent.md` (in this skill's directory) for the agent spec. Pass: new instance path, MC version.
+Read `./boot-verification-agent.md` (in this skill's directory) for the agent spec. Pass: new instance path, `{PRISM_EXE}`, MC version.
 
 - If boot **fails**: report the crash log excerpt and stop. Do NOT promote. Ask the user how to proceed.
 - If boot **passes**: continue to step 10.
@@ -86,14 +106,29 @@ Then tell the user:
 
 Rename the instance folder from `<name>.beta` to `<name-without-.beta>`. Remind user to refresh Prism (Ctrl+R).
 
-### 12. Publish the modpack
+### 12. Publish the modpack (optional)
 
-After promote, zip and upload the instance so friends can download it.
+**Skip this step if no publish config was provided.**
+
+After promote, zip and upload the instance so friends can download it. Requires: `{VPS_SSH}` (SSH alias), `{VPS_PRISM_DIR}` (remote dir), `{MODPACK_BASE_URL}` (public URL).
 
 **12a. Zip with exclusions:**
 
 ```bash
-cd "C:/Users/leole/AppData/Roaming/PrismLauncher/instances"
+cd "{PRISM_INSTANCES}"
+zip -r "<instance-name>.zip" "<instance-name>/" \
+  -x "*Distant_Horizons_server_data*" \
+  -x "*screenshots*" \
+  -x "*saves*" \
+  -x "*downloads*" \
+  -x "*.mixin.out*" \
+  -x "*debug*" \
+  -x "*logs*"
+```
+
+On Windows with 7z:
+```bash
+cd "{PRISM_INSTANCES}"
 7z a -tzip "<instance-name>.zip" "<instance-name>/" \
   -xr!"Distant_Horizons_server_data" \
   -xr!"screenshots" \
@@ -104,26 +139,16 @@ cd "C:/Users/leole/AppData/Roaming/PrismLauncher/instances"
   -xr!"logs"
 ```
 
-If `7z` is not available, use PowerShell:
-```powershell
-$src = "C:/Users/leole/AppData/Roaming/PrismLauncher/instances/<instance-name>"
-$tmp = "$env:TEMP/<instance-name>"
-$excludes = @("Distant_Horizons_server_data","screenshots","saves","downloads",".mixin.out","debug","logs")
-robocopy $src $tmp /E /XD $excludes /NFL /NDL /NJH /NJS
-Compress-Archive -Path $tmp -DestinationPath "C:/Users/leole/AppData/Roaming/PrismLauncher/instances/<instance-name>.zip"
-Remove-Item -Recurse -Force $tmp
-```
-
 **12b. Upload to VPS:**
 
 ```bash
-scp "C:/Users/leole/AppData/Roaming/PrismLauncher/instances/<instance-name>.zip" dev:/home/dev/prism/
+scp "{PRISM_INSTANCES}/<instance-name>.zip" {VPS_SSH}:{VPS_PRISM_DIR}
 ```
 
 **12c. Update the `latest.zip` symlink:**
 
 ```bash
-ssh dev "cd /home/dev/prism && ln -sf '<instance-name>.zip' latest.zip"
+ssh {VPS_SSH} "cd {VPS_PRISM_DIR} && ln -sf '<instance-name>.zip' latest.zip"
 ```
 
 **12d. Update `manifest.json`:**
@@ -131,9 +156,9 @@ ssh dev "cd /home/dev/prism && ln -sf '<instance-name>.zip' latest.zip"
 Read the current manifest from the VPS, prepend the new version to the `versions` array, update `latest`, and write it back:
 
 ```bash
-ssh dev "python3 -c \"
+ssh {VPS_SSH} "python3 -c \"
 import json, os
-path = '/home/dev/prism/manifest.json'
+path = '{VPS_PRISM_DIR}/manifest.json'
 data = json.load(open(path)) if os.path.exists(path) else {'latest':{}, 'versions':[]}
 entry = {
   'version': '<instance-name>',
@@ -155,11 +180,11 @@ Compute `<size in MB>` from the zip file size before uploading.
 **12e. Cleanup — keep last 3 zips (exclude symlink):**
 
 ```bash
-ssh dev "cd /home/dev/prism && ls -t *.zip | grep -v latest.zip | tail -n +4 | xargs -r rm -f"
+ssh {VPS_SSH} "cd {VPS_PRISM_DIR} && ls -t *.zip | grep -v latest.zip | tail -n +4 | xargs -r rm -f"
 ```
 
 **12f. Report the URLs:**
 
-> Modpack published: **https://disqt.com/minecraft/**
-> - Latest (stable link): `https://disqt.com/minecraft/modpack/latest.zip`
-> - This version: `https://disqt.com/minecraft/modpack/<instance-name>.zip`
+> Modpack published: **{MODPACK_BASE_URL}**
+> - Latest (stable link): `{MODPACK_BASE_URL}/latest.zip`
+> - This version: `{MODPACK_BASE_URL}/<instance-name>.zip`

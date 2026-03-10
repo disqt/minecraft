@@ -9,12 +9,12 @@ This agent makes completion claims about instance state — it follows `superpow
 ## Inputs
 
 - **Instance name** — e.g. `1.21.11 v2.0.beta`
-- **Instance path** — `C:/Users/leole/AppData/Roaming/PrismLauncher/instances/<instance-name>/`
+- **Instance path** — `{PRISM_INSTANCES}/<instance-name>/`
+- **Prism exe** — `{PRISM_EXE}` (resolved by parent)
 - **Expected mods** — list of mod names that should be loaded (from the decision doc — all KEEPs + ADDs + REPLACEs + UPDATEs)
 
 Derived (do not ask):
 - **Log path** — `<instance-path>/.minecraft/logs/latest.log`
-- **Prism exe** — `C:/Users/leole/AppData/Local/Programs/PrismLauncher/prismlauncher.exe`
 
 ---
 
@@ -27,7 +27,7 @@ Delete `<log-path>` if it exists from a previous boot.
 ### 2. Launch the instance
 
 ```bash
-"C:/Users/leole/AppData/Local/Programs/PrismLauncher/prismlauncher.exe" --launch "<instance-name>" &
+"{PRISM_EXE}" --launch "<instance-name>" &
 ```
 
 This uses Prism's own launch path — it reads the instance's Java path, JVM args, memory, and classpath automatically.
@@ -54,9 +54,16 @@ If 90s elapse with no crash indicator → continue to Step 5.
 
 ### 5. Kill the process
 
+**Windows:**
 ```bash
 taskkill //F //IM prismlauncher.exe 2>/dev/null
 taskkill //F //IM javaw.exe 2>/dev/null
+```
+
+**Linux/macOS:**
+```bash
+pkill -f prismlauncher 2>/dev/null
+pkill -f "java.*minecraft" 2>/dev/null
 ```
 
 ### 6. Verify with evidence
