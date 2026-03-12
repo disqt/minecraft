@@ -1,5 +1,5 @@
 ---
-name: audit
+name: papermc-audit
 description: Use when the user wants to do a full refresh of their PaperMC server plugins in one session — check for Paper updates, audit plugin quality, update plugin versions, stage-test and apply changes safely.
 ---
 
@@ -29,7 +29,7 @@ Ask for any of these not already provided:
 ## Flow
 
 ```
-audit
+papermc-audit
   └─ gathers inputs, auto-detects server state
   └─ creates decision doc
   └─ invokes paper-check                          ← Phase 1

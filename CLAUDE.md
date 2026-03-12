@@ -15,7 +15,7 @@ plugins/
     agents/
       mc-category-agent.md        # Agent definition for parallel category audits
     skills/
-      audit/SKILL.md              # Entry point: full modset refresh (meta + version + executor)
+      prism-audit/SKILL.md        # Entry point: full modset refresh (meta + version + executor)
       meta-refresh/               # Phase 1: are mods still best-in-class?
         SKILL.md                  # Orchestrator — dispatches parallel category agents
         category-agent-prompt.md  # Template injected into each category agent
@@ -40,7 +40,7 @@ plugins/
     agents/
       server-category-agent.md    # Agent definition for parallel category audits
     skills/
-      audit/SKILL.md              # Entry point: gather inputs, create decision doc, chain to paper-check
+      papermc-audit/SKILL.md      # Entry point: gather inputs, create decision doc, chain to paper-check
       paper-check/                # Phase 1: can PaperMC be upgraded?
         SKILL.md                  # Query PaperMC API, run compat-check on all plugins
         paper-compat-report-format.md
@@ -69,7 +69,7 @@ plugins/
 
 Three-phase pipeline, each phase chaining to the next:
 
-1. **audit** (entry point) — creates a decision doc, then invokes meta-refresh
+1. **prism-audit** (entry point) — creates a decision doc, then invokes meta-refresh
 2. **meta-refresh** — categorizes mods, dispatches parallel category agents (one per category), synthesizes results into an upgrade plan, writes approved decisions to the doc, then chains to version-refresh
 3. **version-refresh** — dispatches parallel version-check agents (one per mod), builds upgrade plan, writes approved decisions, then dispatches a background executor agent
 
@@ -97,7 +97,7 @@ Four-phase pipeline with staging verification and live cutover:
 
 | Slash command | Skill |
 |---------------|-------|
-| `/audit` | Full client audit (meta-refresh + version-refresh + executor) |
+| `/prism-audit` | Full client audit (meta-refresh + version-refresh + executor) |
 | `/meta-refresh` | Meta-only: find better mods, gaps, redundancies |
 | `/version-refresh` | Version-only: check all mods for updates |
 | `/compat-check` | Internal sub-procedure (not user-invoked) |
@@ -107,7 +107,7 @@ Four-phase pipeline with staging verification and live cutover:
 
 | Slash command | Skill |
 |---------------|-------|
-| `/audit` | Full server audit (paper-check + meta-refresh + version-refresh + executor) |
+| `/papermc-audit` | Full server audit (paper-check + meta-refresh + version-refresh + executor) |
 | `/paper-check` | Can PaperMC be upgraded? Which plugins break? |
 | `/meta-refresh` | Are these the right plugins? Gaps, replacements, wildcards |
 | `/version-refresh` | Are all plugins up to date? |

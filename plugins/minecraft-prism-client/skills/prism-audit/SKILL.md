@@ -1,5 +1,5 @@
 ---
-name: audit
+name: prism-audit
 description: Use when the user wants to do a full refresh of their Prism Launcher modset in one session — both auditing mod quality (replacing outdated or superseded mods) and updating all mod versions to their latest compatible builds.
 ---
 
@@ -37,7 +37,7 @@ Ask for any of these not already provided:
 ## Flow
 
 ```
-audit
+prism-audit
   └─ creates decision doc
   └─ invokes meta-refresh
        └─ research → upgrade plan → user approves → writes meta decisions to doc
