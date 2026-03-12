@@ -18,7 +18,7 @@ Ask for any of these not already provided:
 - **Server files path** — absolute path on the remote host where the server lives, e.g. `/opt/minecraft/server`. Contains the `plugins/` subdirectory.
 - **Target MC version** — e.g. `1.21.4`
 - **Server profile** — default: vanilla+ PaperMC (performance, admin tooling, world management, operator QoL). Explicitly excluded: economy, minigames, custom enchantments, gameplay-altering plugins, any plugin that reveals non-vanilla information to players.
-- **Decision doc path** — if passed from audit, use it. Otherwise: `./minecraft-audits/paper-<server-name>-YYYY-MM-DD.md` (create if not exists)
+- **Decision doc path** — if passed from audit, use it. Otherwise: `./minecraft-audits/server-<hostname>-YYYY-MM-DD.md` (create if not exists)
 
 ---
 
@@ -95,7 +95,7 @@ Files are written only after the user responds to the upgrade plan.
 
 ### Phase 5 — Write Decision Doc
 
-**Decision doc path:** `./minecraft-audits/paper-<server-name>-YYYY-MM-DD.md`
+**Decision doc path:** `./minecraft-audits/server-<hostname>-YYYY-MM-DD.md`
 
 Create `./minecraft-audits/` if it doesn't exist. Create the file if it doesn't exist. If it already exists (created by audit), append to it.
 
@@ -125,7 +125,7 @@ Use `approved`, `skipped`, or `cancelled` in the Decision column.
 
 After writing the decision doc, say:
 
-> Meta audit complete. Decision doc saved to `./minecraft-audits/paper-<server-name>-YYYY-MM-DD.md`.
+> Meta audit complete. Decision doc saved to `./minecraft-audits/server-<hostname>-YYYY-MM-DD.md`.
 >
 > Proceed to version-refresh? **(yes / cancel)**
 

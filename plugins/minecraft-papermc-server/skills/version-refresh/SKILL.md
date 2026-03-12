@@ -4,6 +4,7 @@ description: Use when the user wants to check their PaperMC server plugins for v
 ---
 
 REQUIRED SUB-SKILL: superpowers:dispatching-parallel-agents
+REQUIRED SUB-SKILL: compat-check
 
 # PaperMC Server Plugins Version Refresh
 

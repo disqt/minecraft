@@ -101,6 +101,12 @@ Paper-check chains to meta-refresh, which chains to version-refresh, which chain
 
 ---
 
+## Failure Handling
+
+If SSH auto-detection fails (connection refused, no `version_history.json`, no `plugins/` directory), ask the user for manual input. If any downstream skill fails, it handles its own failure — no action needed from audit.
+
+---
+
 ## Common Mistakes
 
 - **Skipping inputs** — always ask for any missing values. Don't assume SSH aliases or paths.

@@ -57,7 +57,7 @@ Wildcards are plugins that fall outside the server's current design goals (e.g. 
 
 ## Rules
 
-- **Plugin names are always hyperlinked** — in every table row and in the collapsed "no changes" list. Link to wherever the plugin was found (Modrinth preferred, Hangar or GitHub if that's the only source).
+- **Plugin names are always hyperlinked** — in every table row and in the collapsed "no changes" list. Link to wherever the plugin was found (Hangar preferred, Modrinth or GitHub if that's the only source).
 - Real links for every plugin and every alternative — no guessed URLs
 - Stats (DL counts, last-updated dates) from actual API calls — never guessed
 - Compat column: confirm via paper-check or Hangar/Modrinth API — format as `Paper X.Y.Z ✓` or `unconfirmed`

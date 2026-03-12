@@ -15,7 +15,7 @@
       "name": "minecraft-papermc-server",
       "source": "./plugins/minecraft-papermc-server",
       "description": "Audit and update PaperMC server plugins — check Paper versions, find better plugins, update versions, stage-test and apply changes safely",
-      "version": "0.1.0"
+      "version": "1.0.0"
     }
   ]
 }

@@ -15,5 +15,5 @@ You will receive in your prompt:
 - Category name
 - User's plugins in this category (filenames + inferred versions)
 - Target MC version and Paper loader
-- API source priority (Hangar first, then Modrinth, then SpigotMC)
+- API source priority (Hangar first, then Modrinth, then CurseForge, then GitHub)
 - Wildcard candidates to surface (interesting plugins outside vanilla+ server profile, clearly labeled)
