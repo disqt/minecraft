@@ -1,0 +1,7 @@
+{
+  "name": "minecraft-papermc-server",
+  "description": "Audit and update PaperMC server plugins — check Paper versions, find better plugins, update versions, stage-test and apply changes safely",
+  "author": {
+    "name": "disqt"
+  }
+}

@@ -10,6 +10,12 @@
       "source": "./plugins/minecraft-prism-client",
       "description": "Audit and update Prism Launcher Fabric modpacks — find better mods, check versions, apply changes, publish to friends",
       "version": "1.0.0"
+    },
+    {
+      "name": "minecraft-papermc-server",
+      "source": "./plugins/minecraft-papermc-server",
+      "description": "Audit and update PaperMC server plugins — check Paper versions, find better plugins, update versions, stage-test and apply changes safely",
+      "version": "1.0.0"
     }
   ]
 }
