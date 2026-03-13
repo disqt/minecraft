@@ -1,0 +1,23 @@
+{
+  "skill_name": "redstone",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "I want to build a hidden entrance to my base using pistons, nothing too crazy just a simple one",
+      "expected_output": "Should recommend a 2x2 flush piston door, generate an HTML viewer with layer-by-layer build guide, explain it in beginner-friendly terms, and mention which direction to face when building",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "How do comparators work? I don't get the subtract mode at all",
+      "expected_output": "Should explain comparators clearly for a beginner — compare mode vs subtract mode with concrete examples. Should NOT generate an HTML viewer since this is a question, not a build request. Should mention container reading as a practical use case",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "I need to sort my items automatically, I have too many chests and its getting out of hand",
+      "expected_output": "Should recommend the standard hopper-based item sorter, generate an HTML viewer with the build, specify exact hopper slot contents (41 target items + 4 renamed sticks), explain overflow protection, and mention that non-stackable items can't be sorted this way",
+      "files": []
+    }
+  ]
+}

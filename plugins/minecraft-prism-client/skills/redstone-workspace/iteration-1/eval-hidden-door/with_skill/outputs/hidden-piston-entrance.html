@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simple Hidden Piston Entrance — Redstone Build Viewer</title>
+<style>
+  :root {
+    --bg: #1a1a2e;
+    --surface: #16213e;
+    --surface2: #0f3460;
+    --text: #e0e0e0;
+    --text-dim: #8a8a9a;
+    --accent: #e94560;
+    --accent2: #533483;
+    --border: #2a2a4a;
+    --cell-size: 48px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 24px;
+  }
+  h1 { font-size: 1.8rem; margin-bottom: 4px; }
+  .subtitle { color: var(--text-dim); margin-bottom: 24px; font-size: 0.95rem; }
+  .info-bar {
+    display: flex; gap: 24px; flex-wrap: wrap;
+    margin-bottom: 24px; padding: 16px;
+    background: var(--surface); border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+  .info-item { display: flex; flex-direction: column; }
+  .info-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-dim); }
+  .info-value { font-size: 1.1rem; font-weight: 600; }
+
+  /* Materials */
+  .materials {
+    margin-bottom: 24px; padding: 16px;
+    background: var(--surface); border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+  .materials h2 { font-size: 1rem; margin-bottom: 12px; }
+  .material-list { display: flex; flex-wrap: wrap; gap: 8px; }
+  .material-chip {
+    display: flex; align-items: center; gap: 6px;
+    padding: 4px 10px; border-radius: 4px;
+    background: var(--bg); font-size: 0.85rem;
+  }
+  .material-swatch {
+    width: 16px; height: 16px; border-radius: 3px;
+    border: 1px solid rgba(255,255,255,0.15);
+  }
+
+  /* Layer navigation */
+  .layer-nav {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 16px; flex-wrap: wrap;
+  }
+  .layer-btn {
+    padding: 8px 16px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--text);
+    border-radius: 6px; cursor: pointer; font-size: 0.9rem;
+    transition: all 0.15s;
+  }
+  .layer-btn:hover { background: var(--surface2); }
+  .layer-btn.active {
+    background: var(--accent); border-color: var(--accent);
+    color: white; font-weight: 600;
+  }
+  .layer-controls {
+    display: flex; gap: 8px; margin-left: auto;
+  }
+  .layer-controls button {
+    padding: 6px 14px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--text);
+    border-radius: 6px; cursor: pointer; font-size: 0.85rem;
+    transition: all 0.15s;
+  }
+  .layer-controls button:hover { background: var(--surface2); }
+  .ghost-toggle { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; color: var(--text-dim); cursor: pointer; }
+  .ghost-toggle input { cursor: pointer; }
+
+  /* Grid */
+  .layer-container {
+    background: var(--surface); border-radius: 8px;
+    border: 1px solid var(--border); padding: 24px;
+    margin-bottom: 24px; overflow-x: auto;
+  }
+  .layer-title {
+    font-size: 1.1rem; font-weight: 600; margin-bottom: 16px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .layer-title .y-badge {
+    font-size: 0.75rem; padding: 2px 8px;
+    background: var(--accent2); border-radius: 4px;
+    font-weight: 400;
+  }
+  .grid-wrapper { position: relative; display: inline-block; }
+  .grid {
+    display: inline-grid;
+    gap: 2px;
+    background: var(--bg);
+    padding: 2px;
+    border-radius: 4px;
+  }
+  .cell {
+    width: var(--cell-size); height: var(--cell-size);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.7rem; font-weight: 700;
+    border-radius: 3px; position: relative;
+    cursor: default; transition: outline 0.1s;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+    color: white;
+  }
+  .cell:hover { outline: 2px solid white; outline-offset: -1px; z-index: 2; }
+  .cell.empty { background: rgba(255,255,255,0.03); }
+  .cell .arrow {
+    position: absolute; bottom: 2px; right: 3px;
+    font-size: 0.65rem; opacity: 0.8;
+  }
+  /* Ghost layer */
+  .cell .ghost {
+    position: absolute; inset: 3px; border-radius: 2px;
+    opacity: 0.25; pointer-events: none;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.6rem;
+  }
+
+  /* Axis labels */
+  .axis-label {
+    font-size: 0.7rem; color: var(--text-dim);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .axis-corner { font-size: 0.65rem; color: var(--text-dim); opacity: 0.5; }
+
+  /* Tooltip */
+  .tooltip {
+    display: none; position: absolute; bottom: calc(100% + 8px); left: 50%;
+    transform: translateX(-50%); padding: 6px 10px;
+    background: #111; color: white; font-size: 0.8rem;
+    border-radius: 4px; white-space: nowrap; z-index: 10;
+    pointer-events: none; box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  }
+  .cell:hover .tooltip { display: block; }
+
+  /* Explanation */
+  .explanation {
+    background: var(--surface); border-radius: 8px;
+    border: 1px solid var(--border); padding: 20px;
+    margin-bottom: 24px; line-height: 1.6;
+  }
+  .explanation h2 { font-size: 1.1rem; margin-bottom: 12px; }
+  .explanation p { margin-bottom: 8px; color: var(--text-dim); }
+  .explanation strong { color: var(--text); }
+
+  /* Legend */
+  .legend {
+    background: var(--surface); border-radius: 8px;
+    border: 1px solid var(--border); padding: 16px;
+  }
+  .legend h2 { font-size: 1rem; margin-bottom: 12px; }
+  .legend-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 6px;
+  }
+  .legend-item {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 0.85rem;
+  }
+  .legend-swatch {
+    width: 24px; height: 24px; border-radius: 3px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.65rem; font-weight: 700; color: white;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+
+  /* Keyboard hint */
+  .kb-hint {
+    text-align: center; color: var(--text-dim);
+    font-size: 0.8rem; margin-top: 16px;
+  }
+  kbd {
+    padding: 2px 6px; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 3px;
+    font-family: inherit; font-size: 0.8rem;
+  }
+
+  @media (max-width: 600px) {
+    :root { --cell-size: 36px; }
+    body { padding: 12px; }
+  }
+</style>
+</head>
+<body>
+
+<h1>Simple Hidden Piston Entrance</h1>
+<p class="subtitle">A lever-activated 1x2 hidden door using sticky pistons — perfect for concealing your base entrance</p>
+
+<div class="info-bar">
+  <div class="info-item">
+    <span class="info-label">Dimensions</span>
+    <span class="info-value">5 x 4 x 4</span>
+  </div>
+  <div class="info-item">
+    <span class="info-label">Layers</span>
+    <span class="info-value">4</span>
+  </div>
+  <div class="info-item">
+    <span class="info-label">Total Blocks</span>
+    <span class="info-value">30</span>
+  </div>
+  <div class="info-item">
+    <span class="info-label">Difficulty</span>
+    <span class="info-value">Easy</span>
+  </div>
+</div>
+
+<div class="materials">
+  <h2>Materials Needed</h2>
+  <div class="material-list" id="materialList"></div>
+</div>
+
+<div class="layer-nav" id="layerNav">
+  <div class="layer-controls">
+    <button onclick="prevLayer()">Prev</button>
+    <button onclick="nextLayer()">Next</button>
+  </div>
+  <label class="ghost-toggle">
+    <input type="checkbox" id="ghostToggle" onchange="renderLayer()">
+    Show layer below (ghost)
+  </label>
+</div>
+
+<div class="layer-container">
+  <div class="layer-title" id="layerTitle"></div>
+  <div class="grid-wrapper">
+    <div class="grid" id="grid"></div>
+  </div>
+</div>
+
+<div class="explanation">
+  <h2>How It Works</h2>
+  <p><strong>Overview:</strong> Two sticky pistons are hidden inside a 2-block-thick wall. A redstone torch keeps them extended by default, pushing two stone blocks into the wall face to make it look solid. When you flip the lever, the torch turns off, the pistons retract, and the door blocks get pulled back into the wall cavity — revealing a 1-wide, 2-tall entrance.</p>
+
+  <p><strong>Signal path:</strong> The lever on the front of the wall sends a signal through redstone dust on top of the wall, over to the back side where it powers the block that the redstone torch sits on. Powering that block turns the torch OFF (this is called a NOT gate or inverter). With the torch off, the pistons lose power and retract, pulling the door blocks inward.</p>
+
+  <p><strong>Quasi-connectivity (Java Edition):</strong> The bottom piston (Y=0) is powered through a Java-only mechanic called quasi-connectivity. The redstone torch powers the top piston (Y=1) directly. The bottom piston detects that the space above it (where the top piston is) would be powered, so it activates too. When the top piston moves, it sends a block update to the bottom piston, which then also retracts. You may notice the bottom piston moves a split second after the top one — this is normal.</p>
+
+  <p><strong>Default state:</strong> Lever OFF = torch ON = pistons extended = door CLOSED. Lever ON = torch OFF = pistons retracted = door OPEN.</p>
+
+  <p><strong>Hiding the lever:</strong> You can place a painting over the lever to conceal it. Stand where you want the painting, place it, then sneak-click behind the painting to place the lever on the wall. The painting hides the lever but you can still right-click through the painting to flip it.</p>
+</div>
+
+<div class="legend" id="legend">
+  <h2>Block Legend</h2>
+  <div class="legend-grid" id="legendGrid"></div>
+</div>
+
+<p class="kb-hint">Use <kbd>&larr;</kbd> <kbd>&rarr;</kbd> arrow keys to navigate layers</p>
+
+<script>
+// === BUILD DATA (injected by skill) ===
+const BUILD_DATA = {
+  "name": "Simple Hidden Piston Entrance",
+  "dimensions": [5, 4, 4],
+  "materials": {
+    "stone": 20,
+    "sticky_piston": 2,
+    "redstone_torch": 1,
+    "redstone_dust": 4,
+    "repeater": 1,
+    "lever": 1,
+    "cobblestone": 1
+  },
+  "layers": [
+    {
+      "y": 0,
+      "note": "Ground level — bottom piston and door block (CLOSED state shown)",
+      "grid": [
+        ["stone", "stone", "stone", "stone", "stone"],
+        ["stone", null, "sticky_piston:east", null, "stone"],
+        ["stone", "stone", "stone", "stone", "stone"],
+        [null, null, null, null, null]
+      ]
+    },
+    {
+      "y": 1,
+      "note": "Top piston level — torch on back wall powers both pistons",
+      "grid": [
+        ["stone", "cobblestone", "stone", "stone", "stone"],
+        ["stone", "redstone_torch", "sticky_piston:east", null, "stone"],
+        ["stone", "stone", "stone", "stone", "stone"],
+        [null, null, null, null, null]
+      ]
+    },
+    {
+      "y": 2,
+      "note": "Above door — wall continues, passage is 2 tall below this",
+      "grid": [
+        ["stone", "stone", "stone", "stone", "stone"],
+        ["stone", "stone", "stone", "stone", "stone"],
+        ["stone", "stone", "stone", "stone", "stone"],
+        [null, null, null, null, null]
+      ]
+    },
+    {
+      "y": 3,
+      "note": "Wiring layer — dust carries lever signal to torch block via repeater",
+      "grid": [
+        [null, null, null, null, null],
+        [null, "redstone_dust", "repeater:west", "redstone_dust", null],
+        [null, null, "redstone_dust", null, null],
+        [null, null, "lever", null, null]
+      ]
+    }
+  ]
+};
+
+// === BLOCK PALETTE ===
+const BLOCKS = {
+  // Redstone components
+  redstone_dust:    { color: '#c41a1a', label: 'RD', name: 'Redstone Dust' },
+  redstone_dust_on: { color: '#ff3333', label: 'RD', name: 'Redstone Dust (powered)' },
+  redstone_torch:   { color: '#ff4444', label: 'RT', name: 'Redstone Torch' },
+  redstone_torch_wall: { color: '#ff4444', label: 'RT', name: 'Redstone Wall Torch' },
+  redstone_block:   { color: '#a01010', label: 'RB', name: 'Block of Redstone' },
+  redstone_lamp:    { color: '#b87a3e', label: 'RL', name: 'Redstone Lamp' },
+  redstone_lamp_on: { color: '#f5d66b', label: 'RL', name: 'Redstone Lamp (lit)' },
+  repeater:         { color: '#909090', label: 'RP', name: 'Repeater', directional: true },
+  comparator:       { color: '#909090', label: 'CP', name: 'Comparator', directional: true },
+  lever:            { color: '#7a6a5a', label: 'LV', name: 'Lever' },
+  button_stone:     { color: '#888888', label: 'BT', name: 'Stone Button' },
+  button_wood:      { color: '#9e7e4e', label: 'BT', name: 'Wooden Button' },
+  pressure_plate:   { color: '#999999', label: 'PP', name: 'Pressure Plate' },
+  tripwire_hook:    { color: '#8a8a8a', label: 'TH', name: 'Tripwire Hook' },
+  target:           { color: '#d4a373', label: 'TG', name: 'Target Block' },
+
+  // Pistons
+  piston:           { color: '#9e8e6e', label: 'PI', name: 'Piston', directional: true },
+  sticky_piston:    { color: '#7eb34e', label: 'SP', name: 'Sticky Piston', directional: true },
+  piston_head:      { color: '#c4b48e', label: 'PH', name: 'Piston Head', directional: true },
+  slime_block:      { color: '#6ec45e', label: 'SL', name: 'Slime Block' },
+  honey_block:      { color: '#e8a030', label: 'HN', name: 'Honey Block' },
+
+  // Observers & dispensers
+  observer:         { color: '#444444', label: 'OB', name: 'Observer', directional: true },
+  dispenser:        { color: '#888888', label: 'DI', name: 'Dispenser', directional: true },
+  dropper:          { color: '#777777', label: 'DR', name: 'Dropper', directional: true },
+  hopper:           { color: '#555555', label: 'HP', name: 'Hopper', directional: true },
+
+  // Building blocks
+  stone:            { color: '#7a7a7a', label: 'ST', name: 'Stone' },
+  cobblestone:      { color: '#6a6a6a', label: 'CB', name: 'Cobblestone' },
+  smooth_stone:     { color: '#8a8a8a', label: 'SS', name: 'Smooth Stone' },
+  stone_slab:       { color: '#8a8a8a', label: 'SB', name: 'Stone Slab' },
+  glass:            { color: '#8ecae6', label: 'GL', name: 'Glass' },
+  iron_block:       { color: '#c8c8c8', label: 'IR', name: 'Iron Block' },
+
+  // Wood
+  oak_planks:       { color: '#b8945a', label: 'WD', name: 'Oak Planks' },
+  oak_log:          { color: '#6e5530', label: 'LG', name: 'Oak Log' },
+  oak_slab:         { color: '#b8945a', label: 'WS', name: 'Oak Slab' },
+
+  // Colored blocks (for marking I/O)
+  lime_wool:        { color: '#70b919', label: 'IN', name: 'Lime Wool (Input)' },
+  pink_wool:        { color: '#e576a8', label: 'OT', name: 'Pink Wool (Output)' },
+  light_blue_wool:  { color: '#5bb5d5', label: 'IO', name: 'Light Blue Wool (Bidirectional)' },
+  gold_block:       { color: '#f0c830', label: 'GD', name: 'Gold Block (Structural)' },
+  diamond_block:    { color: '#36d6d6', label: 'DM', name: 'Diamond Block (Mobile)' },
+
+  // Containers
+  chest:            { color: '#9e7e3e', label: 'CH', name: 'Chest' },
+  barrel:           { color: '#8a6e3e', label: 'BR', name: 'Barrel' },
+
+  // Nature
+  dirt:             { color: '#866043', label: 'DT', name: 'Dirt' },
+  grass_block:      { color: '#5d9e3a', label: 'GR', name: 'Grass Block' },
+  sand:             { color: '#d8c878', label: 'SN', name: 'Sand' },
+  water:            { color: '#2866c4', label: 'WT', name: 'Water' },
+
+  // Rails
+  rail:             { color: '#8a7a5a', label: 'RA', name: 'Rail' },
+  powered_rail:     { color: '#c4a030', label: 'PR', name: 'Powered Rail' },
+  detector_rail:    { color: '#a04040', label: 'DE', name: 'Detector Rail' },
+
+  // Misc
+  tnt:              { color: '#cc3333', label: 'TN', name: 'TNT' },
+  note_block:       { color: '#6e4530', label: 'NB', name: 'Note Block' },
+  daylight_detector:{ color: '#c4b890', label: 'DD', name: 'Daylight Detector' },
+};
+
+const DIRECTION_ARROWS = { north: '\u2191', south: '\u2193', east: '\u2192', west: '\u2190', up: '\u2191', down: '\u2193' };
+
+let currentLayer = 0;
+
+function init() {
+  renderMaterials();
+  renderLayerNav();
+  renderLayer();
+  renderLegend();
+}
+
+function renderMaterials() {
+  const list = document.getElementById('materialList');
+  const mats = BUILD_DATA.materials;
+  list.innerHTML = Object.entries(mats)
+    .sort((a, b) => b[1] - a[1])
+    .map(([block, count]) => {
+      const info = BLOCKS[block.split(':')[0]] || { color: '#555', label: '??', name: block };
+      return `<div class="material-chip">
+        <div class="material-swatch" style="background:${info.color}"></div>
+        ${info.name} <strong>x${count}</strong>
+      </div>`;
+    }).join('');
+}
+
+function renderLayerNav() {
+  const nav = document.getElementById('layerNav');
+  const btns = BUILD_DATA.layers.map((layer, i) =>
+    `<button class="layer-btn ${i === 0 ? 'active' : ''}" onclick="goToLayer(${i})" id="layerBtn${i}">
+      Layer ${i + 1} (Y=${layer.y})
+    </button>`
+  ).join('');
+  nav.insertAdjacentHTML('afterbegin', btns);
+}
+
+function goToLayer(i) {
+  currentLayer = i;
+  document.querySelectorAll('.layer-btn').forEach((btn, idx) => {
+    btn.classList.toggle('active', idx === i);
+  });
+  renderLayer();
+}
+
+function prevLayer() { if (currentLayer > 0) goToLayer(currentLayer - 1); }
+function nextLayer() { if (currentLayer < BUILD_DATA.layers.length - 1) goToLayer(currentLayer + 1); }
+
+function renderLayer() {
+  const layer = BUILD_DATA.layers[currentLayer];
+  const ghostOn = document.getElementById('ghostToggle').checked;
+  const prevLayerData = currentLayer > 0 ? BUILD_DATA.layers[currentLayer - 1] : null;
+
+  const title = document.getElementById('layerTitle');
+  title.innerHTML = `Layer ${currentLayer + 1} <span class="y-badge">Y = ${layer.y}</span>`;
+  if (layer.note) {
+    title.innerHTML += ` <span style="font-weight:400;font-size:0.85rem;color:var(--text-dim)">— ${layer.note}</span>`;
+  }
+
+  const grid = document.getElementById('grid');
+  const cols = layer.grid[0].length;
+  grid.style.gridTemplateColumns = `repeat(${cols}, var(--cell-size))`;
+
+  grid.innerHTML = layer.grid.map((row, ri) =>
+    row.map((cell, ci) => {
+      if (!cell) {
+        let ghostHtml = '';
+        if (ghostOn && prevLayerData && prevLayerData.grid[ri] && prevLayerData.grid[ri][ci]) {
+          const gc = parseCell(prevLayerData.grid[ri][ci]);
+          const gi = BLOCKS[gc.block] || { color: '#555', label: '??', name: gc.block };
+          ghostHtml = `<div class="ghost" style="background:${gi.color}">${gi.label}</div>`;
+        }
+        return `<div class="cell empty">${ghostHtml}</div>`;
+      }
+      const parsed = parseCell(cell);
+      const info = BLOCKS[parsed.block] || { color: '#555', label: '??', name: parsed.block };
+      const arrow = parsed.dir ? `<span class="arrow">${DIRECTION_ARROWS[parsed.dir] || ''}</span>` : '';
+      const extra = parsed.extra ? ` (${parsed.extra})` : '';
+      const dirText = parsed.dir ? `, facing ${parsed.dir}` : '';
+
+      let ghostHtml = '';
+      if (ghostOn && prevLayerData && prevLayerData.grid[ri] && prevLayerData.grid[ri][ci]) {
+        const gc = parseCell(prevLayerData.grid[ri][ci]);
+        const gi = BLOCKS[gc.block] || { color: '#555', label: '??', name: gc.block };
+        ghostHtml = `<div class="ghost" style="background:${gi.color}">${gi.label}</div>`;
+      }
+
+      return `<div class="cell" style="background:${info.color}">
+        ${info.label}${arrow}
+        <span class="tooltip">${info.name}${dirText}${extra}</span>
+        ${ghostHtml}
+      </div>`;
+    }).join('')
+  ).join('');
+}
+
+function parseCell(cell) {
+  if (typeof cell === 'string') {
+    const parts = cell.split(':');
+    return { block: parts[0], dir: parts[1] || null, extra: parts.slice(2).join(', ') || null };
+  }
+  return cell;
+}
+
+function renderLegend() {
+  const used = new Set();
+  BUILD_DATA.layers.forEach(layer => {
+    layer.grid.forEach(row => {
+      row.forEach(cell => {
+        if (cell) used.add(parseCell(cell).block);
+      });
+    });
+  });
+
+  const legendGrid = document.getElementById('legendGrid');
+  legendGrid.innerHTML = [...used].map(block => {
+    const info = BLOCKS[block] || { color: '#555', label: '??', name: block };
+    return `<div class="legend-item">
+      <div class="legend-swatch" style="background:${info.color}">${info.label}</div>
+      ${info.name}
+    </div>`;
+  }).join('');
+}
+
+// Keyboard navigation
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowLeft') prevLayer();
+  if (e.key === 'ArrowRight') nextLayer();
+});
+
+init();
+</script>
+</body>
+</html>
