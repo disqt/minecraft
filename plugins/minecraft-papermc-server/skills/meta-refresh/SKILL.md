@@ -127,10 +127,11 @@ After writing the decision doc, say:
 
 > Meta audit complete. Decision doc saved to `./minecraft-audits/server-<hostname>-YYYY-MM-DD.md`.
 >
-> Proceed to version-refresh? **(yes / cancel)**
+> 1. **Proceed** — continue to version-refresh
+> 2. **Cancel** — stop here
 
-- **If yes:** Say "Invoking `version-refresh`." and invoke it, passing the decision doc path and server connection details.
-- **If cancel:** Ask: "Delete the decision doc to keep tidy, or save it for a future run? **(delete / keep)**" — act on response.
+- **If 1:** Say "Invoking `version-refresh`." and invoke it, passing the decision doc path and server connection details.
+- **If 2:** Ask: "1. **Delete decision doc** — keep tidy, or 2. **Keep decision doc** — save for a future run?" — act on response.
 
 ---
 

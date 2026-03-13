@@ -83,10 +83,11 @@ After writing the decision doc, say:
 
 > Paper check complete. Decision doc updated.
 >
-> Proceed to meta-refresh? **(yes / cancel)**
+> 1. **Proceed** — continue to meta-refresh
+> 2. **Cancel** — stop here
 
-- **If yes:** invoke meta-refresh, passing decision doc path, target MC version, and all SSH/path inputs.
-- **If cancel:** Ask: "Delete the decision doc to keep tidy, or save it for a future run? **(delete / keep)**" — act on response.
+- **If 1:** invoke meta-refresh, passing decision doc path, target MC version, and all SSH/path inputs.
+- **If 2:** Ask: "1. **Delete decision doc** — keep tidy, or 2. **Keep decision doc** — save for a future run?" — act on response.
 
 ---
 
