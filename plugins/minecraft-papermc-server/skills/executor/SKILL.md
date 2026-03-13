@@ -205,7 +205,9 @@ If cutover returns `CUTOVER: ROLLBACK`: invoke `superpowers:systematic-debugging
 
 Only available when the approved changes are plugin-only (no Paper JAR upgrade, no REMOVE actions). If the changes include a Paper upgrade or plugin removals, inform the user that "Apply now" is required and skip this option.
 
-Paper's `plugins/update/` folder matches JARs by **plugin name** (from `plugin.yml`), not by filename. This means version-named JARs (e.g. `BlueMap-5.16-paper.jar`) will correctly replace older versions (e.g. `BlueMap-5.15-paper.jar`) without manual cleanup.
+**Important:** The `plugins/update/` folder only works for **updating existing plugins** — it matches JARs by **plugin name** (from `plugin.yml`), not by filename. This means:
+- UPDATE and REPLACE actions work correctly (version-named JARs like `BlueMap-5.16-paper.jar` will replace `BlueMap-5.15-paper.jar`)
+- **ADD actions do NOT work** via the update folder — new plugins have no existing plugin to match against, so Paper ignores them
 
 Procedure:
 
@@ -214,13 +216,17 @@ Procedure:
    ssh <prod-alias> "mkdir -p {server-files-path}/plugins/update"
    ```
 
-2. Upload all new/updated/replacement JARs from staging to the update folder:
+2. Upload UPDATE and REPLACE JARs to the update folder:
    ```bash
-   rsync -avz -e ssh {staging-files-path}/plugins/<new-jar-1> {staging-files-path}/plugins/<new-jar-2> ... <prod-alias>:{server-files-path}/plugins/update/
+   rsync -avz -e ssh {staging-files-path}/plugins/<update-jar-1> {staging-files-path}/plugins/<update-jar-2> ... <prod-alias>:{server-files-path}/plugins/update/
    ```
-   Only upload JARs for ADD, REPLACE, and UPDATE actions — not the full staging plugins directory.
 
-3. Report what was pushed and note: "Changes will take effect on next server restart."
+3. Upload ADD JARs directly to `plugins/` (they won't load until restart, but they must be in the main folder):
+   ```bash
+   rsync -avz -e ssh {staging-files-path}/plugins/<new-jar-1> ... <prod-alias>:{server-files-path}/plugins/
+   ```
+
+4. Report what was pushed and note: "Changes will take effect on next server restart."
 
 ### Option 3 — Abandon
 
