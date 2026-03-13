@@ -112,10 +112,11 @@ After writing the decision doc, say:
 
 > Version audit complete. Decision doc updated at `./minecraft-audits/server-<hostname>-YYYY-MM-DD.md`.
 >
-> Proceed to executor to stage, verify, and apply all approved changes? **(yes / cancel)**
+> 1. **Proceed** — continue to executor to stage, verify, and apply all approved changes
+> 2. **Cancel** — stop here
 
-- **If cancel:** Ask: "Delete the decision doc to keep tidy, or save it for a future run? **(delete / keep)**" — act on response.
-- **If yes:** Say "Invoking `executor`." and invoke it as a foreground skill (not a background agent).
+- **If 2:** Ask: "1. **Delete decision doc** — keep tidy, or 2. **Keep decision doc** — save for a future run?" — act on response.
+- **If 1:** Say "Invoking `executor`." and invoke it as a foreground skill (not a background agent).
 
 Invoke `executor`, passing:
 - Decision doc path
@@ -140,6 +141,6 @@ If any step produces unexpected results — version agents returning malformed r
 
 - **Guessing version numbers** — always use actual API responses. Never fabricate or infer version strings.
 - **Writing decision doc before user approval** — Steps 1-4 are strictly read-only. No writes until the user responds.
-- **Dispatching executor before user confirms** — always ask "yes / cancel" before invoking the executor.
+- **Dispatching executor before user confirms** — always present numbered options before invoking the executor.
 - **Using a background agent for the executor** — the server executor runs foreground (not `run_in_background: true`), because it requires interactive confirmation during staging verification.
 - **Forgetting the changelog digest** — accumulate all changelog results in Step 2.5 and pass them to the executor. The executor needs this to build the deployment summary.

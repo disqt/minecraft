@@ -96,10 +96,11 @@ After writing the decision doc, say:
 
 > Version audit complete. Decision doc updated at `./minecraft-audits/prism-<instance-name>-YYYY-MM-DD.md`.
 >
-> Dispatch background executor to apply all approved changes? **(yes / cancel)**
+> 1. **Proceed** — dispatch background executor to apply all approved changes
+> 2. **Cancel** — stop here
 
-- **If cancel:** Ask: "Delete the decision doc to keep tidy, or save it for a future run? **(delete / keep)**" — act on response.
-- **If yes:** Say "Dispatching executor." and dispatch a background agent with `run_in_background: true`.
+- **If 2:** Ask: "1. **Delete decision doc** — keep tidy, or 2. **Keep decision doc** — save for a future run?" — act on response.
+- **If 1:** Say "Dispatching executor." and dispatch a background agent with `run_in_background: true`.
 
 Read `./executor-agent-spec.md` (in this skill's directory) for the full executor spec. Pass the executor: decision doc path, instance name, MC version, modloader.
 
@@ -115,4 +116,4 @@ If any step produces unexpected results — version agents returning malformed r
 
 - **Guessing version numbers** — always use actual API responses. Never fabricate or infer version strings.
 - **Writing decision doc before user approval** — Steps 1-4 are strictly read-only. No writes until the user responds.
-- **Dispatching executor before user confirms** — always ask "yes / cancel" before launching the background executor.
+- **Dispatching executor before user confirms** — always present numbered options before launching the background executor.
