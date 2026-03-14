@@ -2,6 +2,6 @@ manifest-url: "https://disqt.com/minecraft/modpack/manifest.json"
 refresh-minutes: 30
 changelog-lines: 3
 messages:
-  outdated: "<black>[</black><green>D</green><gold>i</gold><black>s</black><green>q</green><gold>t</gold><black>]</black> <gray>Modpack update available:</gray> <aqua>v{latest}</aqua> <gray>-</gray> <green>disqt.com/minecraft</green>"
+  outdated: "<dark_gray>[</dark_gray><green>D</green><gold>i</gold><dark_gray>s</dark_gray><green>q</green><gold>t</gold><dark_gray>]</dark_gray> <gray>Modpack update available:</gray> <aqua>v{latest}</aqua> <gray>-</gray> <green>disqt.com/minecraft</green>"
   changelog-line: "  <gray>- {line}</gray>"
-  no-modpack: "<black>[</black><green>D</green><gold>i</gold><black>s</black><green>q</green><gold>t</gold><black>]</black> <gray>Get the modpack at</gray> <green>disqt.com/minecraft</green>"
+  no-modpack: "<dark_gray>[</dark_gray><green>D</green><gold>i</gold><dark_gray>s</dark_gray><green>q</green><gold>t</gold><dark_gray>]</dark_gray> <gray>Get the modpack at</gray> <green>disqt.com/minecraft</green>"
