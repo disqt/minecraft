@@ -5,6 +5,9 @@
   "name": "Disqt Version",
   "description": "Sends modpack version to the server on join",
   "authors": [{ "name": "disqt" }],
+  "contact": {
+    "homepage": "https://disqt.com/minecraft"
+  },
   "license": "MIT",
   "environment": "client",
   "entrypoints": {
