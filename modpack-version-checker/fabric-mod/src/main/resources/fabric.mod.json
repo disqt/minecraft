@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "disqt-version",
+  "version": "${version}",
+  "name": "Disqt Version",
+  "description": "Sends modpack version to the server on join",
+  "authors": [{ "name": "disqt" }],
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "main": ["com.disqt.version.DisqtVersion"],
+    "client": ["com.disqt.version.DisqtVersionClient"]
+  },
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "minecraft": ">=1.21",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}
