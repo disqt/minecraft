@@ -48,6 +48,23 @@ public class VersionListener implements Listener, PluginMessageListener {
         pendingChecks.put(player.getUniqueId(), task);
     }
 
+    private static boolean isOlderVersion(String client, String latest) {
+        try {
+            String[] clientParts = client.split("\\.");
+            String[] latestParts = latest.split("\\.");
+            int len = Math.max(clientParts.length, latestParts.length);
+            for (int i = 0; i < len; i++) {
+                int c = i < clientParts.length ? Integer.parseInt(clientParts[i]) : 0;
+                int l = i < latestParts.length ? Integer.parseInt(latestParts[i]) : 0;
+                if (c < l) return true;
+                if (c > l) return false;
+            }
+            return false;
+        } catch (NumberFormatException e) {
+            return !client.equals(latest);
+        }
+    }
+
     @Override
     public void onPluginMessageReceived(String channel, Player player, byte[] message) {
         if (!channel.equals("disqt:version")) return;
@@ -60,7 +77,7 @@ public class VersionListener implements Listener, PluginMessageListener {
 
         if (latestVersion == null) return;
 
-        if (!clientVersion.equals(latestVersion)) {
+        if (isOlderVersion(clientVersion, latestVersion)) {
             String msg = outdatedTemplate.replace("{latest}", latestVersion);
             player.sendMessage(miniMessage.deserialize(msg));
 

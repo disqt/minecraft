@@ -141,6 +141,58 @@ Four-phase pipeline with staging verification and live cutover:
 - **Redstone viewer**: `scp <file> dev:/home/dev/redstone-viewer/` — served at `https://disqt.com/minecraft/redstone/`
 - Nginx: `location /minecraft/redstone/` aliases `/home/dev/redstone-viewer/`
 
+## Modpack Publishing
+
+Quick-publish a new modpack version to `disqt.com/minecraft/modpack/`:
+
+1. Copy instance, update `instance.cfg` (name, ExportVersion), `modpack-version.txt`
+2. Zip with Python (no `zip`/`7z` on this Windows machine):
+   ```python
+   python3 -c "
+   import zipfile, os
+   src = r'<instance-path>'
+   dst = r'C:\Users\leole\AppData\Local\Temp\<name>.zip'
+   exclude = ['Distant_Horizons_server_data', 'screenshots', 'saves', 'downloads', '.mixin.out', 'debug', 'logs']
+   with zipfile.ZipFile(dst, 'w', zipfile.ZIP_DEFLATED) as zf:
+       for root, dirs, files in os.walk(src):
+           dirs[:] = [d for d in dirs if d not in exclude]
+           for f in files:
+               full = os.path.join(root, f)
+               arcname = '<name>/' + os.path.relpath(full, src)
+               zf.write(full, arcname)
+   "
+   ```
+3. `scp <zip> dev:/home/dev/prism/`
+4. Update symlink: `ssh dev "cd /home/dev/prism && ln -sf '<name>.zip' latest.zip"`
+5. Update manifest.json (prepend to versions array, update latest)
+6. Cleanup (handle spaces in filenames): `ls -t *.zip | grep -v latest.zip | tail -n +4 | while IFS= read -r f; do rm -f "$f"; done`
+7. Reload version checker: `ssh minecraft "tmux -S /tmp/tmux-1000/pmcserver-bb664df1 send-keys -t pmcserver 'plugman reload DisqtVersion' Enter"`
+
+**Important:** Close Minecraft before copying instances -- locked files cause incomplete copies.
+**Important:** `zip`/`7z` are not installed on this Windows machine. Use Python `zipfile` module.
+
+### Prism Launcher Instances
+- Path: `C:\Users\leole\AppData\Roaming\PrismLauncher\instances\`
+- Current modpack: `1.21.11 v2.5` (Fabric 0.18.4, MC 1.21.11, 135 mods)
+- JVM: Shenandoah GC with brucethemoose client-tuned flags
+- Modpack hosted at: `https://disqt.com/minecraft/modpack/` (VPS path: `/home/dev/prism/`)
+
+### DisqtVersion Plugin (modpack version checker)
+- Source: `modpack-version-checker/paper-plugin/`
+- Build: `cd modpack-version-checker/paper-plugin && ./gradlew build`
+- JAR: `build/libs/DisqtVersion-1.0.0.jar`
+- Deploy: `scp <jar> minecraft:/home/minecraft/serverfiles/plugins/` then `plugman reload DisqtVersion`
+- Uses `<` version comparison (not `!=`) to avoid false positives from stale manifest cache
+
+### Known Issues
+
+#### Distant Horizons log spam (v2.4.4b+)
+`onWorldGenTaskComplete` NullPointerException spams ~45k times per session. Known regression (GitLab #1212), introduced in 2.4.4b. Not fixed yet. Silence via `DistantHorizons.toml`:
+- `logWorldGenEvent = "DISABLED"`, `logWorldGenLoadEvent = "DISABLED"`, `logWorldGenPerformance = "DISABLED"`
+- `logWorldGenEventToFile = "ERROR"`, `logWorldGenChunkLoadEventToFile = "ERROR"`
+- `overrideVanillaGLLogger = false` (suppresses Iris+DH GL texture error stacktrace)
+- Do NOT downgrade to 2.4.3b -- loses stutter fix for chunk border crossing
+
 ## Key APIs Used
 
 - **Modrinth API v2** (`https://api.modrinth.com/v2/`) — primary source for client mod search, version lookup, compatibility verification, and reference pack contents

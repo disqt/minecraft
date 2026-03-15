@@ -213,7 +213,7 @@ Compute `<size in MB>` from the zip file size before uploading.
 **12e. Cleanup — keep last 3 zips (exclude symlink):**
 
 ```bash
-ssh {VPS_SSH} "cd {VPS_PRISM_DIR} && ls -t *.zip | grep -v latest.zip | tail -n +4 | xargs -r rm -f"
+ssh {VPS_SSH} "cd {VPS_PRISM_DIR} && ls -t *.zip | grep -v latest.zip | tail -n +4 | while IFS= read -r f; do rm -f \"\\\$f\"; done"
 ```
 
 **12f. Report the URLs:**
