@@ -1,0 +1,8 @@
+{
+  "name": "minecraft-spark-analyzer",
+  "version": "1.0.0",
+  "description": "Analyze Spark profiler reports from Minecraft players to diagnose client-side FPS issues and server-side TPS problems",
+  "author": {
+    "name": "disqt"
+  }
+}

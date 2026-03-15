@@ -1,0 +1,23 @@
+{
+  "skill_name": "spark-analyze",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "hey my friend anthraxit is getting stutters, here's his spark profile: https://spark.lucko.me/tjm0YswAhI",
+      "expected_output": "A structured analysis identifying DH render-thread blocking, EMF/ETF overhead, RAM exhaustion/swap, ZGC on client as main issues with actionable fixes",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "https://spark.lucko.me/yWdvkNEkM3 this player says their fps drops to like 30 sometimes, can you figure out why?",
+      "expected_output": "Analysis showing DH network processing on render thread (~12%), system RAM at 88% with heavy swap, EMF animation cost, and Subtle Effects tick overhead",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "can you look at https://spark.lucko.me/olrVn3QGTt and tell me what's wrong and what they should change?",
+      "expected_output": "Diagnosis with system summary, health table, top bottlenecks ranked by impact, and numbered fix recommendations with categories",
+      "files": []
+    }
+  ]
+}

@@ -16,6 +16,12 @@
       "source": "./plugins/minecraft-papermc-server",
       "description": "Audit and update PaperMC server plugins — check Paper versions, find better plugins, update versions, stage-test and apply changes safely",
       "version": "1.0.3"
+    },
+    {
+      "name": "minecraft-spark-analyzer",
+      "source": "./plugins/minecraft-spark-analyzer",
+      "description": "Analyze Spark profiler reports from Minecraft players to diagnose client-side FPS issues and server-side TPS problems",
+      "version": "1.0.0"
     }
   ]
 }

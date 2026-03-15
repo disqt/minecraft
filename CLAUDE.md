@@ -61,6 +61,15 @@ plugins/
         cutover-agent-prompt.md   # Production cutover with backup + rollback
         changelog-digest-format.md
       compat-check/SKILL.md       # Verifies builds via Hangar/Modrinth API
+  minecraft-spark-analyzer/       # Spark profiler report analysis (v1.0.0)
+    .claude-plugin/plugin.json    # Plugin metadata
+    skills/
+      spark-analyze/              # Analyze spark.lucko.me profiles for FPS/TPS issues
+        SKILL.md                  # Skill entry point: fetch, parse, diagnose, recommend
+        scripts/
+          analyze_spark.py        # Bundled parser: fetches JSON, computes per-mod hotspots
+        references/
+          diagnosis-patterns.md   # FPS diagnosis catalog, JVM args, mod recommendations
 ```
 
 ## Architecture
@@ -113,6 +122,12 @@ Four-phase pipeline with staging verification and live cutover:
 | `/meta-refresh` | Are these the right plugins? Gaps, replacements, wildcards |
 | `/version-refresh` | Are all plugins up to date? |
 | `/compat-check` | Internal sub-procedure (not user-invoked) |
+
+### Spark analyzer (minecraft-spark-analyzer)
+
+| Slash command | Skill |
+|---------------|-------|
+| `/spark-analyze` | Analyze a spark.lucko.me profile for FPS/TPS issues |
 
 ## Docs
 
