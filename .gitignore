@@ -1,6 +1,9 @@
 .worktrees/
 minecraft-audits/
 
+# Build output
+**/bin/
+
 # IDE
 .project
 .classpath
