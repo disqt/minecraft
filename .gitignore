@@ -3,6 +3,8 @@ minecraft-audits/
 
 # Build output
 **/bin/
+__pycache__/
+.superpowers/
 
 # IDE
 .project

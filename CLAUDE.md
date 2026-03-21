@@ -7,74 +7,18 @@ A Claude Code **plugin marketplace** (`disqt/minecraft`) for Minecraft server an
 ## Repository Structure
 
 ```
-.claude-plugin/marketplace.json   # Marketplace registry — lists installable plugins
-redstone-viewer/                  # Deployed HTML viewers (served at disqt.com/minecraft/redstone/)
+.claude-plugin/marketplace.json     # Marketplace registry
+redstone-viewer/                    # HTML viewers (disqt.com/minecraft/redstone/)
 modpack-version-checker/            # Modpack version checker (Paper plugin + Fabric mod)
-  paper-plugin/                     # Server-side: sends version to clients on join
-  fabric-mod/                       # Client-side: receives version, shows update toast
 plugins/
-  minecraft-prism-client/         # Client-side modpack management (v1.0.3)
-    .claude-plugin/plugin.json    # Plugin metadata
-    agents/
-      mc-category-agent.md        # Agent definition for parallel category audits
-    skills/
-      prism-audit/SKILL.md        # Entry point: full modset refresh (meta + version + executor)
-      meta-refresh/               # Phase 1: are mods still best-in-class?
-        SKILL.md                  # Orchestrator — dispatches parallel category agents
-        category-agent-prompt.md  # Template injected into each category agent
-        config-research-agent.md  # Agent spec for post-install config tuning
-        upgrade-plan-format.md    # Output format for meta upgrade plans
-      version-refresh/            # Phase 2: are mods up to date?
-        SKILL.md                  # Orchestrator — dispatches parallel version agents
-        version-agent-prompt.md   # Per-mod version lookup procedure
-        changelog-agent-prompt.md # Per-mod changelog extraction
-        version-upgrade-plan-format.md
-        executor-agent-spec.md    # Background agent: clone, download, boot-verify, publish
-        download-agent-prompt.md  # Per-mod download agent
-        boot-verification-agent.md
-      compat-check/SKILL.md       # Verifies exact MC version builds via Modrinth API
-      redstone/                   # Redstone circuit build guides with layer viewer
-        SKILL.md                  # Skill entry point
-        assets/                   # HTML viewer templates (2D + 3D)
-        references/               # Component docs, circuit catalog, Java mechanics
-      redstone-workspace/         # Skill development: evals and iteration results
-  minecraft-papermc-server/       # Server-side plugin management (v1.0.3)
-    .claude-plugin/plugin.json    # Plugin metadata
-    agents/
-      server-category-agent.md    # Agent definition for parallel category audits
-    skills/
-      papermc-audit/SKILL.md      # Entry point: gather inputs, create decision doc, chain to paper-check
-      paper-check/                # Phase 1: can PaperMC be upgraded?
-        SKILL.md                  # Query PaperMC API, run compat-check on all plugins
-        paper-compat-report-format.md
-      meta-refresh/               # Phase 2: are plugins still best-in-class?
-        SKILL.md                  # Orchestrator — dispatches parallel category agents
-        category-agent-prompt.md  # Per-category research with Hangar-first API + wildcards
-        config-research-agent.md  # Post-install config tuning for server plugins
-        upgrade-plan-format.md    # Output format with wildcards section
-      version-refresh/            # Phase 3: are plugins up to date?
-        SKILL.md                  # Orchestrator — dispatches parallel version agents
-        version-agent-prompt.md   # Per-plugin version lookup (Hangar-first)
-        changelog-agent-prompt.md # Per-plugin changelog extraction
-        version-upgrade-plan-format.md
-      executor/                   # Phase 4: staging verification + production cutover
-        SKILL.md                  # Foreground skill: staging, downloads, verify, cutover
-        download-agent-prompt.md  # Per-plugin download to staging via SSH
-        staging-verification-agent.md  # Boot-test on staging server
-        cutover-agent-prompt.md   # Production cutover with backup + rollback
-        changelog-digest-format.md
-      compat-check/SKILL.md       # Verifies builds via Hangar/Modrinth API
-  minecraft-spark-analyzer/       # Spark profiler report analysis (v1.0.0)
-    .claude-plugin/plugin.json    # Plugin metadata
-    skills/
-      spark-analyze/              # Analyze spark.lucko.me profiles for FPS/TPS issues
-        SKILL.md                  # Skill entry point: fetch, parse, diagnose, recommend
-        scripts/
-          analyze_spark.py        # Bundled parser: fetches JSON, computes per-mod hotspots
-        references/
-          diagnosis-patterns.md   # FPS diagnosis catalog, JVM args, mod recommendations
-      spark-analyze-workspace/    # Skill development: evals and iteration results
+  minecraft-prism-client/           # Client modpack management (v1.0.3) — skills: prism-audit, meta-refresh, version-refresh, compat-check, redstone
+  minecraft-papermc-server/         # Server plugin management (v1.0.3) — skills: papermc-audit, paper-check, meta-refresh, version-refresh, executor, compat-check
+  minecraft-spark-analyzer/         # Spark profiler analysis (v1.0.0) — skill: spark-analyze
+docs/superpowers/                   # Plans and specs
+world-migration-cli/                # Migration preview CLI (Python, see section below)
 ```
+
+Each plugin has `skills/` (SKILL.md entry points), `agents/` (parallel agent definitions), and `.claude-plugin/plugin.json` (metadata). Explore subdirectories for full structure.
 
 ## Architecture
 
@@ -142,11 +86,42 @@ Four-phase pipeline with staging verification and live cutover:
 | PaperMC server skill plan | `docs/superpowers/plans/2026-03-12-papermc-server-plugin-skill.md` |
 | Modpack version checker plan | `docs/superpowers/plans/2026-03-14-modpack-version-checker.md` |
 | Modpack version checker design | `docs/superpowers/specs/2026-03-14-modpack-version-checker-design.md` |
+| Chunk inspector (Leaflet) plan | `docs/superpowers/plans/2026-03-19-chunk-inspector-leaflet.md` |
+| Migration preview CLI design | `docs/superpowers/specs/2026-03-21-migration-preview-cli-design.md` |
+| Migration preview CLI plan | `docs/superpowers/plans/2026-03-21-migration-preview-cli.md` |
 
 ## Deploy
 
+- **Chunk inspector**: `disqt.com/minecraft/chunks/` — Astro page in `disqt-minecraft` project. Data generated by `scripts/generate-chunk-data.py`, served from `/home/dev/minecraft-maps/data/`
 - **Redstone viewer**: `scp <file> dev:/home/dev/redstone-viewer/` — served at `https://disqt.com/minecraft/redstone/`
 - Nginx: `location /minecraft/redstone/` aliases `/home/dev/redstone-viewer/`
+- **Backup archives:** `C:\Users\leole\OneDrive\pmc_backup\` (tar.zst, cloud-synced — do NOT stream-read directly, copy local first)
+
+## Migration Preview CLI
+
+Python CLI at `world-migration-cli/migrate.py` for analyzing and trimming Minecraft world chunks during version migrations.
+
+### Usage
+```bash
+python world-migration-cli/migrate.py ./world --threshold 120 --html preview.html  # local world
+python world-migration-cli/migrate.py --host minecraft --remote-path /home/minecraft/serverfiles/world_new --html preview.html  # SSH
+python world-migration-cli/migrate.py ./world --threshold 120 --dangerously-perform-the-trim  # actually trim
+```
+
+### Testing
+- Run: `cd world-migration-cli && python -m pytest tests/ -v`
+- 62 tests, all stdlib (no pip deps except optional `lz4` for MC 1.20.5+ chunks)
+- Tests use `make_region_with_chunks()` helper from `tests/test_migrate_regions.py` to build valid .mca fixtures
+
+### Module layout
+- `migrate.py` — CLI entry point + pipeline orchestration
+- `migrate_nbt.py` — minimal NBT reader (extracts InhabitedTime, DataVersion from compressed chunk data)
+- `migrate_regions.py` — .mca region file parsing + chunk analysis
+- `migrate_remote.py` — PaperMC/Vanilla layout detection + SSH download
+- `migrate_html.py` — standalone HTML preview generator
+- `migrate_raw.py` — binary overlay output for chunk inspector
+- `migrate_mca.py` — MCA Selector CLI wrapper (for `--query` mode)
+- `migrate_display.py` — terminal stats table + safety abort formatting
 
 ## Modpack Publishing
 
@@ -176,7 +151,7 @@ Quick-publish a new modpack version to `disqt.com/minecraft/modpack/`:
 7. Reload version checker: `ssh minecraft "tmux -S /tmp/tmux-1000/pmcserver-bb664df1 send-keys -t pmcserver 'plugman reload DisqtVersion' Enter"`
 
 **Important:** Close Minecraft before copying instances -- locked files cause incomplete copies.
-**Important:** `zip`/`7z` are not installed on this Windows machine. Use Python `zipfile` module.
+**Important:** `7z` is available (installed via choco). Python `zipfile` also works.
 
 ### Prism Launcher Instances
 - Path: `C:\Users\leole\AppData\Roaming\PrismLauncher\instances\`
