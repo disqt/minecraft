@@ -13,7 +13,7 @@ modpack-version-checker/            # Modpack version checker (Paper plugin + Fa
 plugins/
   minecraft-prism-client/           # Client modpack management (v1.0.3) — skills: prism-audit, meta-refresh, version-refresh, compat-check, redstone
   minecraft-papermc-server/         # Server plugin management (v1.0.3) — skills: papermc-audit, paper-check, meta-refresh, version-refresh, executor, compat-check
-  minecraft-spark-analyzer/         # Spark profiler analysis (v1.0.0) — skill: spark-analyze
+  minecraft-spark-analyzer/         # Spark profiler analysis (v1.1.0) — skill: spark-analyze
 docs/superpowers/                   # Plans and specs
 world-migration-cli/                # Migration preview CLI (Python, see section below)
 ```
