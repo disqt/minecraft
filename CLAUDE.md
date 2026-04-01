@@ -97,6 +97,13 @@ Four-phase pipeline with staging verification and live cutover:
 - Nginx: `location /minecraft/redstone/` aliases `/home/dev/redstone-viewer/`
 - **Backup archives:** `C:\Users\leole\OneDrive\pmc_backup\` (tar.zst, cloud-synced — do NOT stream-read directly, copy local first)
 
+## Region File Analysis
+- Can parse .mca region files to count specific block types per chunk, grouped by zone
+- Download regions via `scp minecraft:/home/minecraft/serverfiles/world_new/region/r.X.Z.mca`
+- Chunk-to-region: `region_x = chunk_x >> 5`, `region_z = chunk_z >> 5`
+- Chunk-to-block: `block = chunk * 16`
+- Watch for false matches in block name filtering (e.g., "bed" matches "bedrock" -- use `endswith("_bed")`)
+
 ## Migration Preview CLI
 
 Python CLI at `world-migration-cli/migrate.py` for analyzing and trimming Minecraft world chunks during version migrations.
@@ -128,7 +135,7 @@ python world-migration-cli/migrate.py ./world --threshold 120 --dangerously-perf
 Quick-publish a new modpack version to `disqt.com/minecraft/modpack/`:
 
 1. Copy instance, update `instance.cfg` (name, ExportVersion), `modpack-version.txt`
-2. Zip with Python (no `zip`/`7z` on this Windows machine):
+2. Zip with Python or 7z:
    ```python
    python3 -c "
    import zipfile, os
@@ -155,7 +162,7 @@ Quick-publish a new modpack version to `disqt.com/minecraft/modpack/`:
 
 ### Prism Launcher Instances
 - Path: `C:\Users\leole\AppData\Roaming\PrismLauncher\instances\`
-- Current modpack: `1.21.11 v2.6` (Fabric 0.18.4, MC 1.21.11, 144 mods)
+- Current modpack: `1.21.11 v2.8` (Fabric 0.18.4, MC 1.21.11)
 - JVM: Shenandoah GC with brucethemoose client-tuned flags
 - Modpack hosted at: `https://disqt.com/minecraft/modpack/` (VPS path: `/home/dev/prism/`)
 
