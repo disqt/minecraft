@@ -89,6 +89,9 @@ Four-phase pipeline with staging verification and live cutover:
 | Chunk inspector (Leaflet) plan | `docs/superpowers/plans/2026-03-19-chunk-inspector-leaflet.md` |
 | Migration preview CLI design | `docs/superpowers/specs/2026-03-21-migration-preview-cli-design.md` |
 | Migration preview CLI plan | `docs/superpowers/plans/2026-03-21-migration-preview-cli.md` |
+| PaperMC server skill design | `docs/superpowers/specs/2026-03-12-papermc-server-plugin-skill-design.md` |
+| World migration trim tool plan | `docs/superpowers/plans/2026-03-20-world-migration-trim-tool.md` |
+| World migration trim tool design | `docs/superpowers/specs/2026-03-20-world-migration-trim-tool-design.md` |
 
 ## Deploy
 
@@ -175,6 +178,14 @@ Quick-publish a new modpack version to `disqt.com/minecraft/modpack/`:
 - Fabric build: `cd modpack-version-checker/fabric-mod && ./gradlew build`
 - Fabric JAR goes into Prism instance `mods/` folder
 - Uses `<` version comparison (not `!=`) to avoid false positives from stale manifest cache
+
+### AuthMe ReReloaded (authentication)
+- Fork: HaHaWTH/AuthMeReReloaded v5.7.0-FORK-b53
+- Config: `/home/minecraft/serverfiles/plugins/AuthMe/config.yml`
+- Database: SQLite at `/home/minecraft/serverfiles/plugins/AuthMe/authme.db`
+- Hash: SHA256 (`$SHA$salt$hash` format), min password length 5
+- HIBP breach check: enabled (checks on registration and password change only, NOT on login)
+- Reload: `ssh minecraft "tmux -S /tmp/tmux-1000/pmcserver-bb664df1 send-keys -t pmcserver 'authme reload' Enter"`
 
 ### Known Issues
 
