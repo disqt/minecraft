@@ -71,8 +71,12 @@ def build_seed_snapshots(db_path, deaths, current_villagers):
 
     dead_uuids = {d["uuid"] for d in deaths}
 
-    # Identify survivors: current villagers not in the dead list
-    survivors = [v for v in current_villagers if v["uuid"] not in dead_uuids]
+    # Identify survivors: current DEFAULT-spawn villagers not in the dead list.
+    # BREEDING villagers born after the culling should NOT appear in seed snapshots.
+    survivors = [
+        v for v in current_villagers
+        if v["uuid"] not in dead_uuids and v.get("spawn_reason") == "DEFAULT"
+    ]
 
     total_pre = len(deaths) + len(survivors)
 

@@ -1,5 +1,6 @@
 """census.py — CLI entry point and pipeline orchestrator for the villager census."""
 
+import json
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -103,7 +104,7 @@ def run_census(*, db_path, center_x, center_z, radius, poi_regions, notes=None):
     snapshot_id = insert_snapshot(
         conn,
         timestamp=timestamp,
-        players_online=len(players),
+        players_online=json.dumps(players),
         area_center_x=center_x,
         area_center_z=center_z,
         scan_radius=radius,
