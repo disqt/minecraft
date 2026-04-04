@@ -8,15 +8,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from census_collect import (
-    check_chunks_loaded,
     check_players_online,
-    collect_villager_dumps,
-    collect_villager_dumps_box,
     configure as configure_transport,
-    forceload_zones,
+    entity_region_coords,
+    get_entity_files,
+    get_entity_mtimes,
     get_poi_files,
     get_player_position,
-    unforceload_zones,
+    save_all,
 )
 from census_db import (
     export_all_json,
@@ -34,7 +33,7 @@ from census_db import (
     insert_villager_state,
     mark_dead,
 )
-from census_parse import parse_entity_line
+from census_entities import parse_entity_regions
 from census_poi import parse_poi_regions
 from census_zones import bounding_box, classify_bed, classify_villager, make_single_zone
 
@@ -63,15 +62,14 @@ def run_census(*, db_path, zones, poi_regions, notes=None, skipped_zones=None):
     Steps:
     1. Init DB, get previous snapshot UUIDs.
     2. Check players online.
-    3. Collect villager entity dumps (box query covering all zones).
-    4. Parse entity lines into villager dicts.
-    5. Download and parse POI files for bed data.
-    6. Filter beds to bounding box.
-    7. Insert snapshot row (with coverage info).
-    8. Classify and insert villagers, states, trades, inventory, gossip.
-    9. Classify and insert beds (with home→uuid cross-reference).
-    10. Detect deaths and births vs previous snapshot.
-    11. Return summary with per-zone breakdown.
+    3. Download and parse entity .mca files for villager data.
+    4. Download and parse POI files for bed data.
+    5. Filter beds to bounding box.
+    6. Insert snapshot row (with coverage info).
+    7. Classify and insert villagers, states, trades, inventory, gossip.
+    8. Classify and insert beds (with home→uuid cross-reference).
+    9. Detect deaths and births vs previous snapshot.
+    10. Return summary with per-zone breakdown.
     """
     skipped_zones = skipped_zones or []
     conn = init_db(db_path)
@@ -85,19 +83,12 @@ def run_census(*, db_path, zones, poi_regions, notes=None, skipped_zones=None):
     # Step 2: players online
     players = check_players_online()
 
-    # Step 3: collect entity lines using bounding box
+    # Step 3: download and parse entity files
     x_min, z_min, x_max, z_max = bounding_box(zones)
-    entity_lines = collect_villager_dumps_box(x_min, z_min, x_max, z_max)
-
-    # Step 4: parse each line
-    villagers = []
-    for line in entity_lines:
-        try:
-            v = parse_entity_line(line)
-            if v.get("uuid"):
-                villagers.append(v)
-        except (ValueError, KeyError):
-            pass
+    entity_regions = entity_region_coords(zones)
+    entity_local_dir = Path("/tmp/census_entities")
+    entity_paths = get_entity_files(entity_regions, entity_local_dir)
+    villagers = parse_entity_regions(entity_paths)
 
     # Step 5: download and parse POI files
     poi_local_dir = Path("/tmp/census_poi")
