@@ -69,6 +69,9 @@ def test_cli_config_first_place(toml_file, db_file, capsys):
     """--config without --place uses the first place in the file."""
     with (
         patch("sys.argv", ["census.py", "--config", toml_file, "--db", db_file]),
+        patch("census.save_all"),
+        patch("census.get_entity_mtimes", return_value={"r.1.2.mca": 9999}),
+        patch("census.entity_region_coords", return_value=[(1, 2)]),
         patch("census.run_census", return_value=MOCK_SUMMARY) as mock_run,
     ):
         census.main()
@@ -84,6 +87,9 @@ def test_cli_config_with_place(toml_file, db_file):
     """--config --place selects the named place."""
     with (
         patch("sys.argv", ["census.py", "--config", toml_file, "--place", "hamlet", "--db", db_file]),
+        patch("census.save_all"),
+        patch("census.get_entity_mtimes", return_value={"r.1.2.mca": 9999}),
+        patch("census.entity_region_coords", return_value=[(1, 2)]),
         patch("census.run_census", return_value=MOCK_SUMMARY) as mock_run,
     ):
         census.main()
@@ -100,6 +106,9 @@ def test_cli_center_with_radius(db_file):
     with (
         patch("sys.argv", ["census.py", "--center", "3150,-950", "--radius", "300",
                            "--name", "piwigord", "--db", db_file]),
+        patch("census.save_all"),
+        patch("census.get_entity_mtimes", return_value={"r.1.2.mca": 9999}),
+        patch("census.entity_region_coords", return_value=[(1, 2)]),
         patch("census.run_census", return_value=MOCK_SUMMARY) as mock_run,
     ):
         census.main()
@@ -117,6 +126,9 @@ def test_cli_center_default_name(db_file):
     """--center without --name generates a name from coordinates."""
     with (
         patch("sys.argv", ["census.py", "--center", "100,-200", "--radius", "50", "--db", db_file]),
+        patch("census.save_all"),
+        patch("census.get_entity_mtimes", return_value={"r.1.2.mca": 9999}),
+        patch("census.entity_region_coords", return_value=[(1, 2)]),
         patch("census.run_census", return_value=MOCK_SUMMARY) as mock_run,
     ):
         census.main()
@@ -148,6 +160,9 @@ def test_cli_rect(db_file):
     """--rect creates a rect zone."""
     with (
         patch("sys.argv", ["census.py", "--rect", "0,-100,200,0", "--name", "area", "--db", db_file]),
+        patch("census.save_all"),
+        patch("census.get_entity_mtimes", return_value={"r.1.2.mca": 9999}),
+        patch("census.entity_region_coords", return_value=[(1, 2)]),
         patch("census.run_census", return_value=MOCK_SUMMARY) as mock_run,
     ):
         census.main()
@@ -218,6 +233,9 @@ def test_cli_poi_regions_parsed(db_file):
     with (
         patch("sys.argv", ["census.py", "--center", "0,0", "--radius", "10",
                            "--poi-regions", "5,-3;6,-2", "--db", db_file]),
+        patch("census.save_all"),
+        patch("census.get_entity_mtimes", return_value={"r.1.2.mca": 9999}),
+        patch("census.entity_region_coords", return_value=[(1, 2)]),
         patch("census.run_census", return_value=MOCK_SUMMARY) as mock_run,
     ):
         census.main()
@@ -231,6 +249,9 @@ def test_cli_prints_zone_table(db_file, capsys):
     """CLI prints a zone breakdown table."""
     with (
         patch("sys.argv", ["census.py", "--center", "0,0", "--radius", "10", "--db", db_file]),
+        patch("census.save_all"),
+        patch("census.get_entity_mtimes", return_value={"r.1.2.mca": 9999}),
+        patch("census.entity_region_coords", return_value=[(1, 2)]),
         patch("census.run_census", return_value=MOCK_SUMMARY),
     ):
         census.main()
@@ -240,85 +261,62 @@ def test_cli_prints_zone_table(db_file, capsys):
     assert "Population" in output
 
 
-# --- --auto mode ---
+# --- mtime noop gate ---
 
-def test_cli_auto_no_players_skips(toml_file, db_file, capsys):
-    """--auto with no players logs a skip and exits cleanly."""
-    with (
-        patch("sys.argv", ["census.py", "--config", toml_file, "--auto", "--db", db_file]),
-        patch("census.check_players_online", return_value=[]),
-    ):
-        census.main()
-
-    output = capsys.readouterr().out
-    assert "Skipped: no players online" in output
-
+def test_cli_skips_when_mtimes_unchanged(toml_file, db_file, capsys):
+    """When entity file mtimes match the last run, census is skipped."""
     conn = init_db(db_file)
-    cur = conn.execute("SELECT status, reason FROM census_runs")
-    row = cur.fetchone()
-    assert row["status"] == "skipped_no_players"
+    from census_db import insert_census_run
+    insert_census_run(conn, timestamp="2026-04-04T00:00:00Z", status="completed",
+                      entity_mtimes='{"r.6.-3.mca": 1000, "r.6.-2.mca": 2000}')
     conn.close()
 
-
-def test_cli_auto_no_loaded_chunks_skips(toml_file, db_file, capsys):
-    """--auto with players but no loaded chunks logs a skip."""
     with (
-        patch("sys.argv", ["census.py", "--config", toml_file, "--auto", "--db", db_file]),
-        patch("census.check_players_online", return_value=["Termiduck"]),
-        patch("census.check_chunks_loaded", return_value=[]),
+        patch("sys.argv", ["census.py", "--config", toml_file, "--db", db_file]),
+        patch("census.save_all"),
+        patch("census.get_entity_mtimes", return_value={"r.6.-3.mca": 1000, "r.6.-2.mca": 2000}),
+        patch("census.entity_region_coords", return_value=[(6, -3), (6, -2)]),
+        patch("census.run_census") as mock_run,
     ):
         census.main()
 
+    mock_run.assert_not_called()
     output = capsys.readouterr().out
-    assert "Skipped: no zones have loaded chunks" in output
+    assert "Skipped" in output
 
+
+def test_cli_runs_when_mtimes_changed(toml_file, db_file):
+    """When entity file mtimes differ from last run, full census runs."""
     conn = init_db(db_file)
-    cur = conn.execute("SELECT status FROM census_runs")
-    assert cur.fetchone()["status"] == "skipped_no_chunks"
+    from census_db import insert_census_run
+    insert_census_run(conn, timestamp="2026-04-04T00:00:00Z", status="completed",
+                      entity_mtimes='{"r.6.-3.mca": 1000, "r.6.-2.mca": 2000}')
     conn.close()
 
-
-def test_cli_auto_partial_zones(toml_file, db_file, capsys):
-    """--auto with only some zones loaded runs a partial census."""
-    partial_summary = {**MOCK_SUMMARY, "zones": {"center": {"villagers": 5, "beds": 3, "bells": 0}}}
-
     with (
-        patch("sys.argv", ["census.py", "--config", toml_file, "--auto", "--db", db_file]),
-        patch("census.check_players_online", return_value=["Termiduck"]),
-        patch("census.check_chunks_loaded", return_value=["center"]),
-        patch("census.run_census", return_value=partial_summary) as mock_run,
+        patch("sys.argv", ["census.py", "--config", toml_file, "--db", db_file]),
+        patch("census.save_all"),
+        patch("census.get_entity_mtimes", return_value={"r.6.-3.mca": 1000, "r.6.-2.mca": 3000}),
+        patch("census.entity_region_coords", return_value=[(6, -3), (6, -2)]),
+        patch("census.run_census", return_value=MOCK_SUMMARY) as mock_run,
     ):
         census.main()
 
-    # Only the loaded zone was passed to run_census
-    zones = mock_run.call_args.kwargs["zones"]
-    assert len(zones) == 1
-    assert zones[0]["name"] == "center"
-
-    # Skipped zones passed through
-    assert "outskirts" in mock_run.call_args.kwargs["skipped_zones"]
-
-    # Run logged as completed
-    conn = init_db(db_file)
-    cur = conn.execute("SELECT status, snapshot_id FROM census_runs")
-    row = cur.fetchone()
-    assert row["status"] == "completed"
-    assert row["snapshot_id"] == partial_summary["snapshot_id"]
-    conn.close()
+    mock_run.assert_called_once()
 
 
-def test_cli_auto_prints_skipped_zones(toml_file, db_file, capsys):
-    """--auto prints which zones were skipped."""
+def test_cli_runs_on_first_run(toml_file, db_file):
+    """First run (no previous mtimes) always proceeds."""
     with (
-        patch("sys.argv", ["census.py", "--config", toml_file, "--auto", "--db", db_file]),
-        patch("census.check_players_online", return_value=["Termiduck"]),
-        patch("census.check_chunks_loaded", return_value=["center"]),
-        patch("census.run_census", return_value=MOCK_SUMMARY),
+        patch("sys.argv", ["census.py", "--config", toml_file, "--db", db_file]),
+        patch("census.save_all"),
+        patch("census.get_entity_mtimes", return_value={"r.1.2.mca": 1000}),
+        patch("census.entity_region_coords", return_value=[(1, 2)]),
+        patch("census.run_census", return_value=MOCK_SUMMARY) as mock_run,
     ):
         census.main()
 
-    output = capsys.readouterr().out
-    assert "Skipped (chunks not loaded): outskirts" in output
+    mock_run.assert_called_once()
 
 
 # --- --install / --uninstall ---
@@ -347,7 +345,7 @@ def test_cli_install_cron(toml_file, db_file, capsys):
 
     crontab = installed_crontab[0]
     assert "*/15 * * * *" in crontab
-    assert "--auto" in crontab
+    assert "--lazy" not in crontab  # force mode by default
     assert "--config" in crontab
     assert "# villager-census" in crontab
     # Existing entries preserved

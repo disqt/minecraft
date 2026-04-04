@@ -13,6 +13,7 @@ from census_zones import (
     classify_villager,
     load_place,
     make_single_zone,
+    zone_bounds,
     zone_center,
 )
 
@@ -153,6 +154,16 @@ corners = [[200, 0], [100, -100]]
     assert z["x_max"] == 200
     assert z["z_min"] == -100
     assert z["z_max"] == 0
+
+
+def test_zone_bounds_rect():
+    zone = {"name": "a", "type": "rect", "x_min": 100, "z_min": -200, "x_max": 300, "z_max": -50}
+    assert zone_bounds(zone) == (100, -200, 300, -50)
+
+
+def test_zone_bounds_circle():
+    zone = {"name": "b", "type": "circle", "center_x": 150, "center_z": -100, "radius": 50}
+    assert zone_bounds(zone) == (100, -150, 200, -50)
 
 
 def test_zone_center_rect():

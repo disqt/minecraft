@@ -1,13 +1,19 @@
 """Tests for census_collect.py — SSH/tmux data collection module."""
 
 import pytest
-from unittest.mock import patch
+import tempfile
+from pathlib import Path
+from unittest.mock import patch, MagicMock
 
+import census_collect
 from census_collect import (
-    check_chunks_loaded,
     check_players_online,
     get_player_position,
     parse_death_log,
+    save_all,
+    get_entity_files,
+    get_entity_mtimes,
+    entity_region_coords,
 )
 from census_zones import make_single_zone
 
@@ -83,76 +89,109 @@ def test_get_player_position_not_found():
     assert pos is None
 
 
-# --- check_chunks_loaded ---
+# --- save_all ---
 
-def test_check_chunks_loaded_all_loaded():
-    """All zones report loaded when markers appear in log."""
-    zones = [
-        make_single_zone(center_x=100, center_z=200, radius=50, name="zone-a"),
-        make_single_zone(center_x=300, center_z=400, radius=50, name="zone-b"),
+def test_save_all_waits_for_confirmation():
+    """save_all sends marker + 'save-all', returns when log shows marker then 'Saved the game'."""
+    sent = []
+
+    def fake_run(cmd):
+        return [
+            "[12:00:00] [Server thread/INFO]: [Server] SAVEALL_100",
+            "[12:00:01] [Server thread/INFO]: Saved the game",
+        ]
+
+    with (
+        patch("census_collect._send_tmux", side_effect=lambda cmd: sent.append(cmd)),
+        patch("census_collect._run_command", side_effect=fake_run),
+        patch("census_collect.time.sleep"),
+        patch("census_collect.time.time", side_effect=[100, 100, 101]),
+    ):
+        save_all(timeout=30)
+
+    assert any("SAVEALL_100" in s for s in sent)
+    assert "save-all" in sent
+
+
+def test_save_all_timeout():
+    """save_all raises TimeoutError if 'Saved the game' never appears after marker."""
+    def fake_run(cmd):
+        # Marker present but no "Saved the game" after it
+        return [
+            "[12:00:00] [Server thread/INFO]: [Server] SAVEALL_200",
+            "[12:00:01] Some other line",
+        ]
+
+    with (
+        patch("census_collect._send_tmux"),
+        patch("census_collect._run_command", side_effect=fake_run),
+        patch("census_collect.time.sleep"),
+        patch("census_collect.time.time", side_effect=[200, 200, 231]),
+    ):
+        with pytest.raises(TimeoutError):
+            save_all(timeout=30)
+
+
+# --- get_entity_mtimes ---
+
+def test_get_entity_mtimes():
+    """get_entity_mtimes parses stat output into {filename: mtime} dict."""
+    stat_output = [
+        "1712200000 r.6.-3.mca",
+        "1712200100 r.6.-2.mca",
     ]
 
-    def fake_ssh(cmd):
-        # Return log lines with both markers present
-        return [
-            "[12:00:00] [Server thread/INFO]: [Server] CHUNKPROBE_12345_START",
-            "[12:00:01] [Server thread/INFO]: [Server] CHUNKPROBE_12345_zone-a",
-            "[12:00:01] [Server thread/INFO]: [Server] CHUNKPROBE_12345_zone-b",
-            "[12:00:02] [Server thread/INFO]: [Server] CHUNKPROBE_12345_END",
-        ]
+    with patch("census_collect._run_command", return_value=stat_output):
+        result = get_entity_mtimes([(6, -3), (6, -2)])
 
-    with (
-        patch("census_collect._send_tmux"),
-        patch("census_collect._run_command", side_effect=fake_ssh),
-        patch("census_collect.time.sleep"),
-        patch("census_collect.time.time", return_value=12345),
-    ):
-        loaded = check_chunks_loaded(zones)
-
-    assert set(loaded) == {"zone-a", "zone-b"}
+    assert result == {
+        "r.6.-3.mca": 1712200000,
+        "r.6.-2.mca": 1712200100,
+    }
 
 
-def test_check_chunks_loaded_partial():
-    """Only zones whose markers appear are returned."""
-    zones = [
-        make_single_zone(center_x=100, center_z=200, radius=50, name="loaded-zone"),
-        make_single_zone(center_x=300, center_z=400, radius=50, name="unloaded-zone"),
-    ]
+# --- get_entity_files (SSH mode) ---
 
-    def fake_ssh(cmd):
-        return [
-            "[12:00:00] [Server thread/INFO]: [Server] CHUNKPROBE_99_START",
-            "[12:00:01] [Server thread/INFO]: [Server] CHUNKPROBE_99_loaded-zone",
-            "[12:00:02] [Server thread/INFO]: [Server] CHUNKPROBE_99_END",
-        ]
+def test_get_entity_files_ssh():
+    """get_entity_files downloads files via SCP when _ssh_host is set."""
+    original_ssh_host = census_collect._ssh_host
+    census_collect._ssh_host = "minecraft"
 
-    with (
-        patch("census_collect._send_tmux"),
-        patch("census_collect._run_command", side_effect=fake_ssh),
-        patch("census_collect.time.sleep"),
-        patch("census_collect.time.time", return_value=99),
-    ):
-        loaded = check_chunks_loaded(zones)
+    try:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            local_dir = Path(tmpdir)
 
-    assert loaded == ["loaded-zone"]
+            def fake_scp(cmd, **kwargs):
+                # Simulate SCP by creating the target file
+                target = cmd[-1]
+                Path(target).write_bytes(b"fake mca data")
+                result = MagicMock()
+                result.returncode = 0
+                return result
+
+            with patch("subprocess.run", side_effect=fake_scp):
+                paths = get_entity_files([(6, -3)], local_dir)
+
+            assert len(paths) == 1
+            assert paths[0].name == "r.6.-3.mca"
+    finally:
+        census_collect._ssh_host = original_ssh_host
 
 
-def test_check_chunks_loaded_none():
-    """No markers means no zones loaded."""
-    zones = [make_single_zone(center_x=100, center_z=200, radius=50, name="zone-a")]
+# --- entity_region_coords ---
 
-    def fake_ssh(cmd):
-        return [
-            "[12:00:00] [Server thread/INFO]: [Server] CHUNKPROBE_55_START",
-            "[12:00:02] [Server thread/INFO]: [Server] CHUNKPROBE_55_END",
-        ]
+def test_entity_region_coords():
+    """entity_region_coords returns correct region coords for a rect zone."""
+    zones = [{"name": "a", "type": "rect", "x_min": 3090, "z_min": -1040, "x_max": 3220, "z_max": -826}]
+    result = entity_region_coords(zones)
+    # 3090 // 512 = 6, 3220 // 512 = 6
+    # -1040 // 512 = -3 (Python floor div), -826 // 512 = -2
+    assert (6, -3) in result
+    assert (6, -2) in result
 
-    with (
-        patch("census_collect._send_tmux"),
-        patch("census_collect._run_command", side_effect=fake_ssh),
-        patch("census_collect.time.sleep"),
-        patch("census_collect.time.time", return_value=55),
-    ):
-        loaded = check_chunks_loaded(zones)
 
-    assert loaded == []
+def test_entity_region_coords_circle():
+    """entity_region_coords works for circle zones."""
+    zones = [make_single_zone(center_x=3150, center_z=-950, radius=300)]
+    result = entity_region_coords(zones)
+    assert len(result) > 0

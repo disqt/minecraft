@@ -2,7 +2,6 @@
 
 import os
 import re
-import shutil
 import subprocess
 import time
 from pathlib import Path
@@ -12,6 +11,7 @@ TMUX_SOCKET = "/tmp/tmux-1000/pmcserver-bb664df1"
 TMUX_SESSION = "pmcserver"
 LOG_PATH = "/home/minecraft/serverfiles/logs/latest.log"
 POI_DIR = "/home/minecraft/serverfiles/world_new/poi"
+ENTITY_DIR = "/home/minecraft/serverfiles/world_new/entities"
 
 # Set via configure() — None means local mode
 _ssh_host = None
@@ -60,52 +60,6 @@ def _tail_log_after_command(command, wait_seconds=5, tail_lines=200):
 # High-level collection functions
 # ---------------------------------------------------------------------------
 
-def check_chunks_loaded(zones):
-    """Probe which zones have loaded chunks using 'execute if loaded'.
-
-    Sends one probe per zone via tmux, then reads the log for markers.
-    Returns a list of zone names whose chunks are loaded.
-    """
-    from census_zones import zone_center
-
-    timestamp = int(time.time())
-    start_marker = f"CHUNKPROBE_{timestamp}_START"
-    end_marker = f"CHUNKPROBE_{timestamp}_END"
-
-    _send_tmux(f"say {start_marker}")
-    time.sleep(0.5)
-
-    for zone in zones:
-        cx, cz = zone_center(zone)
-        marker = f"CHUNKPROBE_{timestamp}_{zone['name']}"
-        _send_tmux(f"execute if loaded {cx} 64 {cz} run say {marker}")
-        time.sleep(0.3)
-
-    time.sleep(1)
-    _send_tmux(f"say {end_marker}")
-    time.sleep(1)
-
-    all_lines = _run_command(f"tail -n 500 {LOG_PATH}")
-
-    collecting = False
-    loaded = []
-    zone_markers = {
-        f"CHUNKPROBE_{timestamp}_{z['name']}": z["name"] for z in zones
-    }
-    for line in all_lines:
-        if start_marker in line:
-            collecting = True
-            continue
-        if end_marker in line:
-            break
-        if collecting:
-            for marker, name in zone_markers.items():
-                if marker in line and name not in loaded:
-                    loaded.append(name)
-
-    return loaded
-
-
 def check_players_online():
     """Send 'list' command and return a list of online player names.
 
@@ -146,57 +100,6 @@ def get_player_position(player_name):
     return None
 
 
-def collect_villager_dumps(center_x, center_z, radius):
-    """Collect raw entity-data lines for all villagers within radius of (cx, cz)."""
-    selector = (
-        f"@e[type=minecraft:villager,"
-        f"x={center_x},y=70,z={center_z},distance=..{radius}]"
-    )
-    return _collect_with_selector(selector)
-
-
-def collect_villager_dumps_box(x_min, z_min, x_max, z_max):
-    """Collect raw entity-data lines for all villagers within a bounding box."""
-    dx = x_max - x_min
-    dz = z_max - z_min
-    selector = (
-        f"@e[type=minecraft:villager,"
-        f"x={x_min},y=-64,z={z_min},dx={dx},dy=384,dz={dz}]"
-    )
-    return _collect_with_selector(selector)
-
-
-def _collect_with_selector(selector):
-    """Send an execute/data-get command with START/END markers, return entity lines."""
-    timestamp = int(time.time())
-    start_marker = f"CENSUS_{timestamp}_START"
-    end_marker = f"CENSUS_{timestamp}_END"
-
-    _send_tmux(f"say {start_marker}")
-    time.sleep(0.5)
-
-    _send_tmux(f"execute as {selector} run data get entity @s")
-    time.sleep(5)
-
-    _send_tmux(f"say {end_marker}")
-    time.sleep(1)
-
-    all_lines = _run_command(f"tail -n 2000 {LOG_PATH}")
-
-    collecting = False
-    results = []
-    for line in all_lines:
-        if start_marker in line:
-            collecting = True
-            continue
-        if end_marker in line:
-            break
-        if collecting and "has the following entity data: {" in line:
-            results.append(line)
-
-    return results
-
-
 def get_poi_files(region_coords, local_dir):
     """Get POI .mca files — copy locally or download via SCP.
 
@@ -231,6 +134,94 @@ def get_poi_files(region_coords, local_dir):
                 downloaded.append(local_path)
 
     return downloaded
+
+
+def save_all(timeout=30):
+    """Send 'save-all' via tmux and wait for 'Saved the game' in the log.
+
+    Uses a unique marker to avoid matching stale log lines from previous saves.
+    """
+    timestamp = int(time.time())
+    marker = f"SAVEALL_{timestamp}"
+    _send_tmux(f"say {marker}")
+    time.sleep(0.5)
+    _send_tmux("save-all")
+    start = time.time()
+    while time.time() - start < timeout:
+        time.sleep(2)
+        lines = _run_command(f"tail -n 50 {LOG_PATH}")
+        # Only look for "Saved the game" AFTER our marker
+        after_marker = False
+        for line in lines:
+            if marker in line:
+                after_marker = True
+                continue
+            if after_marker and "Saved the game" in line:
+                return
+    raise TimeoutError(f"save-all did not complete within {timeout}s")
+
+
+def get_entity_files(region_coords, local_dir):
+    """Get entity .mca files — copy locally or download via SCP.
+
+    Returns a list of Path objects for files that were successfully obtained.
+    """
+    local_dir = Path(local_dir)
+    local_dir.mkdir(parents=True, exist_ok=True)
+
+    downloaded = []
+    for rx, rz in region_coords:
+        filename = f"r.{rx}.{rz}.mca"
+        local_path = local_dir / filename
+
+        if _ssh_host:
+            remote = f"{_ssh_host}:{ENTITY_DIR}/{filename}"
+            result = subprocess.run(
+                ["scp", remote, str(local_path)],
+                capture_output=True, text=True, timeout=60,
+            )
+            if result.returncode == 0 and local_path.exists():
+                downloaded.append(local_path)
+        else:
+            source = Path(ENTITY_DIR) / filename
+            result = subprocess.run(
+                ["sudo", "cp", str(source), str(local_path)],
+                capture_output=True, text=True, timeout=10,
+            )
+            if result.returncode == 0 and local_path.exists():
+                # Fix ownership so current user can read
+                subprocess.run(["sudo", "chown", f"{os.getuid()}:{os.getgid()}", str(local_path)],
+                               capture_output=True, timeout=5)
+                downloaded.append(local_path)
+
+    return downloaded
+
+
+def get_entity_mtimes(region_coords):
+    """Stat entity .mca files and return {filename: mtime_epoch} dict."""
+    filenames = [f"r.{rx}.{rz}.mca" for rx, rz in region_coords]
+    stat_cmd = " && ".join(
+        f'stat -c "%Y {fn}" {ENTITY_DIR}/{fn}' for fn in filenames
+    )
+    lines = _run_command(stat_cmd)
+    result = {}
+    for line in lines:
+        parts = line.strip().split(None, 1)
+        if len(parts) == 2:
+            mtime, fname = int(parts[0]), parts[1]
+            result[fname] = mtime
+    return result
+
+
+def entity_region_coords(zones):
+    """Compute the set of entity region (rx, rz) coords covering all zones."""
+    from census_zones import bounding_box
+    x_min, z_min, x_max, z_max = bounding_box(zones)
+    regions = set()
+    for x in range(x_min // 512, (x_max // 512) + 1):
+        for z in range(z_min // 512, (z_max // 512) + 1):
+            regions.add((x, z))
+    return sorted(regions)
 
 
 # ---------------------------------------------------------------------------

@@ -70,25 +70,23 @@ def make_single_zone(*, center_x, center_z, radius, name="default"):
     }
 
 
+def zone_bounds(zone):
+    """Return (x_min, z_min, x_max, z_max) for a single zone."""
+    if zone["type"] == "rect":
+        return zone["x_min"], zone["z_min"], zone["x_max"], zone["z_max"]
+    elif zone["type"] == "circle":
+        r = zone["radius"]
+        return (zone["center_x"] - r, zone["center_z"] - r,
+                zone["center_x"] + r, zone["center_z"] + r)
+
+
 def bounding_box(zones):
     """Compute the axis-aligned bounding box covering all zones.
 
     Returns (x_min, z_min, x_max, z_max).
     """
-    x_mins, z_mins, x_maxs, z_maxs = [], [], [], []
-
-    for z in zones:
-        if z["type"] == "rect":
-            x_mins.append(z["x_min"])
-            z_mins.append(z["z_min"])
-            x_maxs.append(z["x_max"])
-            z_maxs.append(z["z_max"])
-        elif z["type"] == "circle":
-            x_mins.append(z["center_x"] - z["radius"])
-            z_mins.append(z["center_z"] - z["radius"])
-            x_maxs.append(z["center_x"] + z["radius"])
-            z_maxs.append(z["center_z"] + z["radius"])
-
+    boxes = [zone_bounds(z) for z in zones]
+    x_mins, z_mins, x_maxs, z_maxs = zip(*boxes)
     return min(x_mins), min(z_mins), max(x_maxs), max(z_maxs)
 
 

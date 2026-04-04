@@ -27,10 +27,11 @@ TEST_ZONES = [make_single_zone(center_x=3150, center_z=-950, radius=300, name="t
 TEST_POI_REGIONS = [(5, -3), (5, -2), (6, -3), (6, -2)]
 
 
-def _run_with_mocks(db_path, *, entity_lines=None, beds=None, players=None, zones=None):
+def _run_with_mocks(db_path, *, villagers=None, beds=None, players=None, zones=None):
     """Helper to run census with standard mocks."""
-    if entity_lines is None:
-        entity_lines = [SAMPLE_ENTITY_LINE]
+    if villagers is None:
+        from census_parse import parse_entity_line
+        villagers = [parse_entity_line(SAMPLE_ENTITY_LINE)]
     if beds is None:
         beds = SAMPLE_BEDS
     if players is None:
@@ -40,8 +41,8 @@ def _run_with_mocks(db_path, *, entity_lines=None, beds=None, players=None, zone
 
     with (
         patch("census.check_players_online", return_value=players),
-        patch("census.collect_villager_dumps_box", return_value=entity_lines),
-        patch("census.get_player_position", return_value=None),
+        patch("census.get_entity_files", return_value=[]),
+        patch("census.parse_entity_regions", return_value=villagers),
         patch("census.get_poi_files", return_value=[]),
         patch("census.parse_poi_regions", return_value=beds),
     ):
@@ -99,7 +100,7 @@ def test_run_census_detects_deaths():
     assert summary1["births"] == 1
     assert summary1["deaths"] == 0
 
-    summary2 = _run_with_mocks(db_path, entity_lines=[], beds=[])
+    summary2 = _run_with_mocks(db_path, villagers=[], beds=[])
     assert summary2["deaths"] == 1
     assert summary2["births"] == 0
 
@@ -199,13 +200,15 @@ def test_run_census_stores_coverage():
         db_path = f.name
 
     import json
+    from census_parse import parse_entity_line
     zones = [make_single_zone(center_x=3173, center_z=-755, radius=10, name="active")]
     skipped = ["inactive-a", "inactive-b"]
+    villagers = [parse_entity_line(SAMPLE_ENTITY_LINE)]
 
     with (
         patch("census.check_players_online", return_value=[]),
-        patch("census.collect_villager_dumps_box", return_value=[SAMPLE_ENTITY_LINE]),
-        patch("census.get_player_position", return_value=None),
+        patch("census.get_entity_files", return_value=[]),
+        patch("census.parse_entity_regions", return_value=villagers),
         patch("census.get_poi_files", return_value=[]),
         patch("census.parse_poi_regions", return_value=[]),
     ):
