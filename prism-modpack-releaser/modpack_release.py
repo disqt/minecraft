@@ -309,7 +309,7 @@ def notify_discord(config: dict, version: str, filename: str, size_str: str, cha
     download_url = config.get("download_url", "https://disqt.com/minecraft/modpack/latest.zip")
 
     description = "\n".join(f"- {line}" for line in changelog) if changelog else "No changes listed."
-    description += f"\n\n**[Download ({size_str})]({download_url})**"
+    description += f"\n\n\u2b07\ufe0f **[Download ({size_str})]({download_url})**"
 
     payload = {
         "channel_id": channel_id,
