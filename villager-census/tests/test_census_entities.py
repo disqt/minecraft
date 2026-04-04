@@ -1,8 +1,13 @@
 """Tests for census_entities.py — NBT-based villager entity parser."""
 
+import io
+import struct
+import tempfile
+import zlib
+
 import pytest
 
-from census_entities import nbt_to_villager
+from census_entities import nbt_to_villager, parse_entity_region, parse_entity_regions
 
 
 # ---------------------------------------------------------------------------
@@ -250,3 +255,197 @@ def test_nbt_to_villager_home_memory():
     assert v["home_x"] == 3100
     assert v["home_y"] == 65
     assert v["home_z"] == -780
+
+
+# ---------------------------------------------------------------------------
+# NBT binary encoder helpers (for .mca fixture building)
+# ---------------------------------------------------------------------------
+
+def _encode_string(s):
+    """Encode a string as TAG_String payload (2-byte length + UTF-8)."""
+    encoded = s.encode("utf-8")
+    return struct.pack(">H", len(encoded)) + encoded
+
+
+def _encode_tag(tag_type, name, payload_bytes):
+    """Encode a named tag: type byte + name + payload."""
+    return struct.pack(">b", tag_type) + _encode_string(name) + payload_bytes
+
+
+def _encode_payload(value):
+    """Encode a Python value into NBT payload bytes, inferring the tag type.
+
+    Returns (tag_type, payload_bytes).
+    """
+    if isinstance(value, bool):
+        # bools must be checked before int (bool is subclass of int)
+        return 1, struct.pack(">b", int(value))
+    elif isinstance(value, int):
+        return 3, struct.pack(">i", value)
+    elif isinstance(value, float):
+        return 6, struct.pack(">d", value)
+    elif isinstance(value, str):
+        return 8, _encode_string(value)
+    elif isinstance(value, dict):
+        return 10, _encode_compound_payload(value)
+    elif isinstance(value, list):
+        # Detect int-array vs generic list
+        if value and all(isinstance(x, int) for x in value):
+            # Use TAG_Int_Array (11)
+            return 11, struct.pack(">i", len(value)) + struct.pack(f">{len(value)}i", *value)
+        elif value and all(isinstance(x, float) for x in value):
+            # Use TAG_List of TAG_Double (6)
+            payload = struct.pack(">b", 6) + struct.pack(">i", len(value))
+            for x in value:
+                payload += struct.pack(">d", x)
+            return 9, payload
+        elif value and all(isinstance(x, dict) for x in value):
+            # TAG_List of TAG_Compound (10)
+            payload = struct.pack(">b", 10) + struct.pack(">i", len(value))
+            for item in value:
+                payload += _encode_compound_payload(item)
+            return 9, payload
+        elif not value:
+            # Empty list — TAG_List of TAG_End
+            return 9, struct.pack(">b", 0) + struct.pack(">i", 0)
+        else:
+            raise ValueError(f"Cannot encode heterogeneous list: {value!r}")
+    else:
+        raise ValueError(f"Cannot encode value of type {type(value)}: {value!r}")
+
+
+def _encode_compound_payload(d):
+    """Encode a dict as TAG_Compound payload (named tags + TAG_End)."""
+    buf = b""
+    for key, value in d.items():
+        tag_type, payload_bytes = _encode_payload(value)
+        buf += _encode_tag(tag_type, key, payload_bytes)
+    buf += struct.pack(">b", 0)  # TAG_End
+    return buf
+
+
+def _encode_nbt_root(name, d):
+    """Encode a full NBT document: named root TAG_Compound."""
+    payload = _encode_compound_payload(d)
+    return struct.pack(">b", 10) + _encode_string(name) + payload
+
+
+def _make_entity_region(entities_by_slot):
+    """Build a valid .mca file bytes with entity chunks in given slots.
+
+    entities_by_slot: dict mapping slot index (0-1023) to list of entity NBT dicts.
+    Each chunk's root NBT is {"Entities": [...]}.
+    """
+    # We need to lay out the region file:
+    # - 4096-byte location header (1024 x 4-byte entries)
+    # - 4096-byte timestamp header (zeros)
+    # - chunk data sectors (each sector is 4096 bytes)
+
+    # First, build and compress all chunk data blobs
+    chunk_blobs = {}  # slot -> compressed bytes
+    for slot, entities in entities_by_slot.items():
+        root_nbt = {"Entities": entities}
+        raw = _encode_nbt_root("", root_nbt)
+        compressed = zlib.compress(raw)
+        # Format: 4-byte length (including compression type byte) + 1-byte type + data
+        length = len(compressed) + 1
+        blob = struct.pack(">I", length) + struct.pack(">B", 2) + compressed
+        chunk_blobs[slot] = blob
+
+    # Assign sectors: chunks start after the two header sectors (offset >= 2)
+    location_header = bytearray(4096)
+    current_offset = 2  # sectors 0 and 1 are headers
+    chunk_data_parts = []
+
+    for slot in sorted(chunk_blobs.keys()):
+        blob = chunk_blobs[slot]
+        # Pad blob to sector boundary
+        sector_count = (len(blob) + 4095) // 4096
+        padded = blob + b"\x00" * (sector_count * 4096 - len(blob))
+        chunk_data_parts.append(padded)
+
+        # Write location entry
+        entry = ((current_offset & 0xFFFFFF) << 8) | (sector_count & 0xFF)
+        struct.pack_into(">I", location_header, slot * 4, entry)
+        current_offset += sector_count
+
+    timestamp_header = b"\x00" * 4096
+    return bytes(location_header) + timestamp_header + b"".join(chunk_data_parts)
+
+
+# ---------------------------------------------------------------------------
+# parse_entity_region / parse_entity_regions tests
+# ---------------------------------------------------------------------------
+
+_SIMPLE_VILLAGER_NBT = {
+    "id": "minecraft:villager",
+    "UUID": [1, 2, 3, 4],
+    "Pos": [100.5, 64.0, -200.3],
+    "Paper.Origin": [50.0, 60.0, -100.0],
+    "Paper.SpawnReason": "BREEDING",
+    "VillagerData": {
+        "type": "minecraft:plains",
+        "profession": "minecraft:farmer",
+        "level": 2,
+    },
+    "Health": 20.0,
+    "Spigot.ticksLived": 5000,
+}
+
+
+def test_parse_entity_region():
+    """One villager in slot 0 is parsed and returned correctly."""
+    mca_bytes = _make_entity_region({0: [_SIMPLE_VILLAGER_NBT]})
+    tmp = tempfile.NamedTemporaryFile(suffix=".mca", delete=False)
+    try:
+        tmp.write(mca_bytes)
+        tmp.close()
+        results = parse_entity_region(tmp.name)
+    finally:
+        import os
+        os.unlink(tmp.name)
+
+    assert len(results) == 1
+    v = results[0]
+    # UUID: ints_to_uuid([1, 2, 3, 4])
+    assert v["uuid"] is not None
+    assert isinstance(v["uuid"], str)
+    assert len(v["uuid"]) == 36
+    assert v["profession"] == "farmer"
+    assert v["pos_x"] == pytest.approx(100.5, rel=1e-3)
+
+
+def test_parse_entity_region_filters_non_villagers():
+    """Non-villager entities in the same chunk are filtered out."""
+    zombie_nbt = {
+        "id": "minecraft:zombie",
+        "UUID": [9, 8, 7, 6],
+        "Pos": [10.0, 64.0, 20.0],
+    }
+    mca_bytes = _make_entity_region({0: [_SIMPLE_VILLAGER_NBT, zombie_nbt]})
+    tmp = tempfile.NamedTemporaryFile(suffix=".mca", delete=False)
+    try:
+        tmp.write(mca_bytes)
+        tmp.close()
+        results = parse_entity_region(tmp.name)
+    finally:
+        import os
+        os.unlink(tmp.name)
+
+    assert len(results) == 1
+    assert results[0]["profession"] == "farmer"
+
+
+def test_parse_entity_region_empty():
+    """8192 bytes of zeros (valid empty .mca) returns empty list."""
+    mca_bytes = b"\x00" * 8192
+    tmp = tempfile.NamedTemporaryFile(suffix=".mca", delete=False)
+    try:
+        tmp.write(mca_bytes)
+        tmp.close()
+        results = parse_entity_region(tmp.name)
+    finally:
+        import os
+        os.unlink(tmp.name)
+
+    assert results == []

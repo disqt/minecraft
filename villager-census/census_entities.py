@@ -1,6 +1,11 @@
 """Entity region file parser — extracts villager entities from .mca files."""
 
+import io
+import struct
+import zlib
+
 from census_parse import ints_to_uuid
+from census_poi import read_nbt
 
 
 def _strip_ns(s):
@@ -178,3 +183,52 @@ def nbt_to_villager(nbt):
         "inventory": inventory,
         "gossip": gossip,
     }
+
+
+# ---------------------------------------------------------------------------
+# MCA / entity region parser
+# ---------------------------------------------------------------------------
+
+def parse_entity_region(region_path):
+    """Parse an entity .mca file. Returns list of villager dicts."""
+    results = []
+    with open(region_path, "rb") as f:
+        location_header = f.read(4096)
+        f.read(4096)  # skip timestamp header
+
+        for slot in range(1024):
+            entry_bytes = location_header[slot * 4: slot * 4 + 4]
+            entry = struct.unpack(">I", entry_bytes)[0]
+            offset = (entry >> 8) & 0xFFFFFF
+            sector_count = entry & 0xFF
+            if offset == 0 and sector_count == 0:
+                continue
+
+            f.seek(offset * 4096)
+            length = struct.unpack(">I", f.read(4))[0]
+            compression_type = struct.unpack(">B", f.read(1))[0]
+            compressed_data = f.read(length - 1)
+
+            if compression_type == 2:
+                raw = zlib.decompress(compressed_data)
+            elif compression_type == 1:
+                import gzip
+                raw = gzip.decompress(compressed_data)
+            else:
+                raw = compressed_data
+
+            nbt = read_nbt(io.BytesIO(raw))
+            entities = nbt.get("Entities", [])
+            for entity in entities:
+                if entity.get("id") == "minecraft:villager":
+                    results.append(nbt_to_villager(entity))
+
+    return results
+
+
+def parse_entity_regions(region_paths):
+    """Parse multiple entity region files. Returns combined list of villager dicts."""
+    results = []
+    for path in region_paths:
+        results.extend(parse_entity_region(path))
+    return results
