@@ -211,6 +211,15 @@ def test_migrate_is_idempotent():
     conn2.close()
 
 
+def test_migrate_adds_entity_mtimes_column():
+    """Migration adds entity_mtimes TEXT column to census_runs."""
+    conn = init_db(":memory:")
+    cur = conn.execute("PRAGMA table_info(census_runs)")
+    cols = {row[1] for row in cur.fetchall()}
+    assert "entity_mtimes" in cols
+    conn.close()
+
+
 def test_new_rows_can_use_zone_after_migration():
     """After migration, new inserts can set the zone column."""
     with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:

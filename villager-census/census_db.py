@@ -170,6 +170,11 @@ def _migrate(conn):
     if "zone" not in cols:
         conn.execute("ALTER TABLE beds ADD COLUMN zone TEXT")
 
+    cur = conn.execute("PRAGMA table_info(census_runs)")
+    cols = {row[1] for row in cur.fetchall()}
+    if "entity_mtimes" not in cols:
+        conn.execute("ALTER TABLE census_runs ADD COLUMN entity_mtimes TEXT")
+
     cur = conn.execute("PRAGMA table_info(snapshots)")
     cols = {row[1] for row in cur.fetchall()}
     if "zones_scanned" not in cols:
@@ -209,14 +214,18 @@ def insert_snapshot(conn, *, timestamp, players_online, area_center_x,
     return cur.lastrowid
 
 
-def insert_census_run(conn, *, timestamp, status, reason=None, snapshot_id=None):
-    """Log a census run attempt. Status: 'completed', 'skipped_no_players', 'skipped_no_chunks'."""
+def insert_census_run(conn, *, timestamp, status, reason=None, snapshot_id=None, entity_mtimes=None):
+    """Log a census run attempt. Status: 'completed', 'skipped_no_players', 'skipped_no_chunks'.
+
+    entity_mtimes: JSON-encoded dict of entity .mca file paths to mtime strings,
+    used as a noop gate to skip scans when no entity files have changed.
+    """
     cur = conn.execute(
         """
-        INSERT INTO census_runs (timestamp, status, reason, snapshot_id)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO census_runs (timestamp, status, reason, snapshot_id, entity_mtimes)
+        VALUES (?, ?, ?, ?, ?)
         """,
-        (timestamp, status, reason, snapshot_id),
+        (timestamp, status, reason, snapshot_id, entity_mtimes),
     )
     conn.commit()
     return cur.lastrowid
