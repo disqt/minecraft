@@ -370,7 +370,7 @@ def test_cli_install_cron(toml_file, db_file, capsys):
 
     crontab = installed_crontab[0]
     assert "*/15 * * * *" in crontab
-    assert "--lazy" in crontab
+    assert "--lazy" not in crontab  # force mode by default
     assert "--config" in crontab
     assert "# villager-census" in crontab
     # Existing entries preserved

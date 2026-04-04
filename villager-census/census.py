@@ -350,7 +350,9 @@ def _build_cron_command(args):
     python = sys.executable
     db = str(Path(args.db).resolve())
 
-    parts = [python, script, "--lazy", "--db", db]
+    parts = [python, script, "--db", db]
+    if args.lazy:
+        parts.append("--lazy")
     if args.config:
         parts += ["--config", str(Path(args.config).resolve())]
         if args.place:
