@@ -198,6 +198,30 @@ def test_parse_poi_region_multiple_sections(tmp_path):
     assert [50, 80, 80] in positions
 
 
+def test_parse_poi_region_finds_bells(tmp_path):
+    """Bell POIs (minecraft:meeting) are returned with type field."""
+    region_path = _build_poi_region(tmp_path, [
+        {
+            "slot": 0,
+            "sections": {
+                "4": [
+                    {"type": "minecraft:home", "pos": [100, 64, 200], "free_tickets": 0},
+                    {"type": "minecraft:meeting", "pos": [110, 65, 210], "free_tickets": 30},
+                    {"type": "minecraft:meeting", "pos": [120, 65, 220], "free_tickets": 28},
+                ]
+            }
+        }
+    ])
+    results = parse_poi_region(region_path)
+    assert len(results) == 3
+    beds = [r for r in results if r["type"] == "minecraft:home"]
+    bells = [r for r in results if r["type"] == "minecraft:meeting"]
+    assert len(beds) == 1
+    assert len(bells) == 2
+    assert bells[0]["pos"] == [110, 65, 210]
+    assert bells[0]["free_tickets"] == 30
+
+
 def test_parse_poi_regions_combines(tmp_path):
     """parse_poi_regions merges beds from multiple region files."""
     r1_dir = tmp_path / "r1"

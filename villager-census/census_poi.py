@@ -72,9 +72,12 @@ def read_nbt(f):
 # ---------------------------------------------------------------------------
 
 def parse_poi_region(region_path):
-    """Parse a POI .mca file. Returns list of {"pos": [x, y, z], "free_tickets": int}
-    dicts, filtered to only minecraft:home type.
+    """Parse a POI .mca file. Returns list of
+    {"type": str, "pos": [x, y, z], "free_tickets": int} dicts,
+    filtered to minecraft:home and minecraft:meeting types.
     """
+    _WANTED_TYPES = {b"minecraft:home", b"minecraft:meeting"}
+    _WANTED_STRS = {"minecraft:home", "minecraft:meeting"}
     results = []
     with open(region_path, "rb") as f:
         location_header = f.read(4096)
@@ -101,8 +104,8 @@ def parse_poi_region(region_path):
             else:
                 raw = compressed_data  # uncompressed
 
-            # Fast pre-filter: skip chunks without any minecraft:home
-            if b"minecraft:home" not in raw:
+            # Fast pre-filter: skip chunks without any wanted POI type
+            if not any(t in raw for t in _WANTED_TYPES):
                 continue
 
             nbt = read_nbt(io.BytesIO(raw))
@@ -110,8 +113,10 @@ def parse_poi_region(region_path):
             for section_key, section in sections.items():
                 records = section.get("Records", [])
                 for record in records:
-                    if record.get("type") == "minecraft:home":
+                    rtype = record.get("type")
+                    if rtype in _WANTED_STRS:
                         results.append({
+                            "type": rtype,
                             "pos": record["pos"],
                             "free_tickets": record.get("free_tickets", 0),
                         })
@@ -120,7 +125,7 @@ def parse_poi_region(region_path):
 
 
 def parse_poi_regions(region_paths):
-    """Parse multiple POI region files. Returns combined list of bed records."""
+    """Parse multiple POI region files. Returns combined list of POI records."""
     results = []
     for path in region_paths:
         results.extend(parse_poi_region(path))
