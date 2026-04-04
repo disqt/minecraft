@@ -1,0 +1,9 @@
+{
+  "vps_host": "dev",
+  "vps_path": "/home/dev/prism",
+  "mc_version": "1.21.11",
+  "modloader": "Fabric",
+  "discord_webhook": "https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_WEBHOOK_TOKEN",
+  "disquests_repo": "disqt/disquests",
+  "keep": 3
+}

@@ -10,3 +10,6 @@ __pycache__/
 .project
 .classpath
 .settings/
+
+# Secrets
+prism-modpack-releaser/modpack-release.json
