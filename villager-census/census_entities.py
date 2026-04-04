@@ -88,13 +88,12 @@ def nbt_to_villager(nbt):
     pos_y = pos[1] if len(pos) > 1 else None
     pos_z = pos[2] if len(pos) > 2 else None
 
-    # Paper-specific fields
-    paper = nbt.get("Paper") or {}
-    origin = paper.get("Origin") or []
+    # Paper-specific fields (stored as flat dotted keys in NBT)
+    origin = nbt.get("Paper.Origin") or []
     origin_x = origin[0] if len(origin) > 0 else None
     origin_y = origin[1] if len(origin) > 1 else None
     origin_z = origin[2] if len(origin) > 2 else None
-    spawn_reason = paper.get("SpawnReason")
+    spawn_reason = nbt.get("Paper.SpawnReason")
 
     # VillagerData
     vd = nbt.get("VillagerData") or {}
@@ -108,8 +107,7 @@ def nbt_to_villager(nbt):
 
     # XP / ticks / age / ground
     xp = nbt.get("Xp")
-    spigot = nbt.get("Spigot") or {}
-    ticks_lived = spigot.get("ticksLived")
+    ticks_lived = nbt.get("Spigot.ticksLived")
     age = nbt.get("Age")
     on_ground = nbt.get("OnGround")
 

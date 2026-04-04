@@ -15,10 +15,8 @@ def _make_villager_nbt(**overrides):
         "id": "minecraft:villager",
         "UUID": [346464738, -1288157012, -1558611273, 949520682],
         "Pos": [3173.038130397757, 70.0, -755.0478646574805],
-        "Paper": {
-            "Origin": [3145.9453962812213, 63.9375, -1006.4578843209587],
-            "SpawnReason": "BREEDING",
-        },
+        "Paper.Origin": [3145.9453962812213, 63.9375, -1006.4578843209587],
+        "Paper.SpawnReason": "BREEDING",
         "VillagerData": {
             "profession": "minecraft:fisherman",
             "level": 1,
@@ -27,7 +25,7 @@ def _make_villager_nbt(**overrides):
         "Health": 16.0,
         "FoodLevel": 0,
         "Xp": 0,
-        "Spigot": {"ticksLived": 821095},
+        "Spigot.ticksLived": 821095,
         "Age": 0,
         "OnGround": 1,
         "RestocksToday": 0,
