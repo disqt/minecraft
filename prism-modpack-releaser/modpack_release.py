@@ -42,6 +42,50 @@ def validate_instance(instance_path: Path):
         sys.exit(f"Error: {mods_dir} not found")
 
 
+def load_packignore(instance_path: Path) -> list[str]:
+    """Read .packignore patterns (one per line, relative to instance root)."""
+    packignore = instance_path / ".packignore"
+    if not packignore.exists():
+        return []
+    return [line.strip() for line in packignore.read_text().splitlines() if line.strip()]
+
+
+def should_exclude(rel_path: str, ignore_patterns: list[str]) -> bool:
+    """Check if a relative path matches any .packignore pattern."""
+    for pattern in ignore_patterns:
+        normalized = pattern.replace("\\", "/")
+        if rel_path.startswith(normalized) or rel_path.startswith(normalized + "/"):
+            return True
+    return False
+
+
+def zip_instance(instance_path: Path, output_path: Path, root_name: str) -> int:
+    """Zip the instance directory, respecting .packignore.
+    Returns the zip file size in bytes.
+    """
+    ignore_patterns = load_packignore(instance_path)
+    ignore_patterns.extend([
+        ".minecraft/logs",
+        ".minecraft/crash-reports",
+    ])
+
+    print("Zipping instance...")
+    with zipfile.ZipFile(output_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        for file_path in sorted(instance_path.rglob("*")):
+            if file_path.is_dir():
+                continue
+            rel = file_path.relative_to(instance_path).as_posix()
+            if should_exclude(rel, ignore_patterns):
+                continue
+            arcname = f"{root_name}/{rel}"
+            zf.write(file_path, arcname)
+
+    size = output_path.stat().st_size
+    size_mb = size / (1024 * 1024)
+    print(f"  Created {output_path.name} ({size_mb:.0f} MB)")
+    return size
+
+
 def main():
     args = parse_args()
     config = load_config(args.config)
@@ -59,7 +103,17 @@ def main():
     print(f"  VPS:      {config['vps_host']}:{config['vps_path']}")
     print()
 
-    # Steps follow in subsequent tasks...
+    with tempfile.TemporaryDirectory() as tmp:
+        zip_path = Path(tmp) / filename
+        zip_size = zip_instance(args.instance_path, zip_path, f"{mc_version} v{version}")
+        size_str = f"{zip_size / (1024 * 1024):.0f} MB"
+        print()
+
+        if args.dry_run:
+            print("[dry-run] Would upload, update manifest, and notify.")
+            return
+
+        # Steps continue in next tasks...
 
 
 if __name__ == "__main__":
