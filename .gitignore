@@ -14,5 +14,8 @@ villager-census/census.db
 .classpath
 .settings/
 
+# Claude
+.claude/settings.local.json
+
 # Secrets
 prism-modpack-releaser/modpack-release.json

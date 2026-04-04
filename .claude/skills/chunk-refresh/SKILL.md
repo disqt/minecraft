@@ -11,9 +11,9 @@ Regenerates the binary chunk data that powers the chunk inspector at `disqt.com/
 
 1. **Deploy the generation script** to the Minecraft VPS:
 ```bash
-scp "$(git rev-parse --show-toplevel 2>/dev/null || echo ../disqt-minecraft)/scripts/generate-chunk-data.py" minecraft:/home/minecraft/generate-chunk-data.py
+scp "$(git rev-parse --show-toplevel 2>/dev/null || echo ../minecraft-frontend)/scripts/generate-chunk-data.py" minecraft:/home/minecraft/generate-chunk-data.py
 ```
-If the disqt-minecraft repo isn't the current directory, find it at `C:/Users/leole/Documents/code/disqt-minecraft`.
+If the minecraft-frontend repo isn't the current directory, find it at `C:/Users/leole/Documents/code/minecraft-frontend`.
 
 2. **Run the script** on the VPS (parses region files, outputs Uint32 grids + metadata + markers):
 ```bash
