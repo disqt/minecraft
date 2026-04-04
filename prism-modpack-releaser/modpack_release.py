@@ -3,12 +3,11 @@
 
 import argparse
 import json
-import os
 import re
+import shlex
 import subprocess
 import sys
 import tempfile
-import urllib.request
 import zipfile
 from datetime import date
 from pathlib import Path
@@ -28,6 +27,7 @@ def parse_args():
     parser.add_argument("--keep", type=int, help="Versions to retain on VPS (default: from config)")
     parser.add_argument("--no-notify", action="store_true", help="Skip Discord notification")
     parser.add_argument("--dry-run", action="store_true", help="Show plan without executing")
+    parser.add_argument("--yes", "-y", action="store_true", help="Skip confirmation prompt")
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG, help="Config file path")
     return parser.parse_args()
 
@@ -67,11 +67,9 @@ def zip_instance(instance_path: Path, output_path: Path, root_name: str) -> int:
     ignore_patterns = load_packignore(instance_path)
     if not ignore_patterns:
         print("  Warning: no .packignore found, zipping everything")
-
-
     print("Zipping instance...")
     with zipfile.ZipFile(output_path, "w", zipfile.ZIP_DEFLATED) as zf:
-        for file_path in sorted(instance_path.rglob("*")):
+        for file_path in instance_path.rglob("*"):
             if file_path.is_dir():
                 continue
             rel = file_path.relative_to(instance_path).as_posix()
@@ -97,9 +95,9 @@ def ssh_cmd(host: str, cmd: str) -> str:
     return result.stdout
 
 
-def get_previous_mod_list(config: dict) -> dict[str, str]:
-    """Get mod jar filenames from the latest version on VPS.
-    Returns {filename: filename} mapping.
+def get_previous_zip_contents(config: dict) -> tuple[set[str], set[str]]:
+    """Get mod jar names and config paths from the latest version on VPS.
+    Returns (mod_jars, config_paths). Single SSH round-trip for manifest + unzip.
     """
     host = config["vps_host"]
     vps_path = config["vps_path"]
@@ -107,24 +105,26 @@ def get_previous_mod_list(config: dict) -> dict[str, str]:
         manifest_raw = ssh_cmd(host, f"cat {vps_path}/manifest.json")
         manifest = json.loads(manifest_raw)
     except Exception:
-        return {}
+        return set(), set()
     if not manifest.get("latest"):
-        return {}
+        return set(), set()
     prev_file = manifest["latest"]["file"]
     try:
-        output = ssh_cmd(host, f"unzip -l '{vps_path}/{prev_file}' 2>/dev/null | grep '\\.jar'")
+        output = ssh_cmd(host, f"unzip -l '{vps_path}/{prev_file}' 2>/dev/null")
     except Exception:
-        return {}
-    jars = {}
+        return set(), set()
+    jars = set()
+    configs = set()
     for line in output.splitlines():
         parts = line.strip().split()
         if not parts:
             continue
         path = parts[-1]
-        if "/mods/" in path:
-            name = path.split("/")[-1]
-            jars[name] = name
-    return jars
+        if "/mods/" in path and path.endswith(".jar"):
+            jars.add(path.split("/")[-1])
+        elif "/config/" in path and not path.endswith("/"):
+            configs.add(path.split("/config/", 1)[-1])
+    return jars, configs
 
 
 def extract_mod_version(jar_name: str) -> tuple[str, str]:
@@ -138,39 +138,14 @@ def extract_mod_version(jar_name: str) -> tuple[str, str]:
     return base, ""
 
 
-def get_local_mod_list(instance_path: Path) -> dict[str, str]:
-    """Get mod jar filenames from the local instance.
-    Returns {filename: filename} mapping.
-    """
+def get_local_mod_list(instance_path: Path) -> set[str]:
+    """Get mod jar filenames from the local instance."""
     mods_dir = instance_path / ".minecraft" / "mods"
-    return {f.name: f.name for f in mods_dir.iterdir() if f.suffix == ".jar"}
+    return {f.name for f in mods_dir.iterdir() if f.suffix == ".jar"}
 
 
-def get_config_diff(instance_path: Path, config: dict) -> list[str]:
-    """Diff config directory against previous version on VPS.
-    Returns list of changelog lines for config changes.
-    """
-    host = config["vps_host"]
-    vps_path = config["vps_path"]
-    try:
-        manifest_raw = ssh_cmd(host, f"cat {vps_path}/manifest.json")
-        manifest = json.loads(manifest_raw)
-    except Exception:
-        return []
-    if not manifest.get("latest"):
-        return []
-    prev_file = manifest["latest"]["file"]
-    try:
-        output = ssh_cmd(host, f"unzip -l '{vps_path}/{prev_file}' 2>/dev/null | grep '/config/'")
-    except Exception:
-        return []
-    prev_configs = set()
-    for line in output.splitlines():
-        parts = line.strip().split()
-        if parts:
-            path = parts[-1]
-            if "/config/" in path:
-                prev_configs.add(path.split("/config/", 1)[-1])
+def get_config_diff(instance_path: Path, prev_configs: set[str]) -> list[str]:
+    """Diff local config directory against previous version's config paths."""
     local_configs = set()
     config_dir = instance_path / ".minecraft" / "config"
     if config_dir.is_dir():
@@ -213,7 +188,7 @@ def get_disquests_changelog(old_jars: dict, new_jars: dict, repo: str) -> list[s
 
 def generate_changelog(instance_path: Path, config: dict) -> list[str]:
     """Generate changelog by diffing mod jars and configs against previous VPS version."""
-    old_jars = get_previous_mod_list(config)
+    old_jars, old_configs = get_previous_zip_contents(config)
     new_jars = get_local_mod_list(instance_path)
     changelog = []
 
@@ -241,7 +216,7 @@ def generate_changelog(instance_path: Path, config: dict) -> list[str]:
             name = new_entry[0].split("-")[0] if "-" in new_entry[0] else prefix
             changelog.append(f"Updated {name} {old_entry[1]} -> {new_entry[1]}")
 
-    config_changes = get_config_diff(instance_path, config)
+    config_changes = get_config_diff(instance_path, old_configs)
     changelog.extend(config_changes)
 
     dq_lines = get_disquests_changelog(old_jars, new_jars, config.get("disquests_repo", ""))
@@ -326,34 +301,36 @@ def prune_old_versions(config: dict, keep: int):
 
 
 def notify_discord(config: dict, version: str, changelog: list[str]):
-    """POST a release notification to Discord via webhook."""
-    webhook_url = config["discord_webhook"]
+    """Send a release notification to Discord via the bot's notify endpoint."""
+    host = config["vps_host"]
+    channel_id = config["discord_channel_id"]
     mc_version = config["mc_version"]
+    role_id = config.get("discord_role_id", "")
 
     description = "\n".join(changelog) if changelog else "No changes listed."
+    description += "\n\n[disqt.com/minecraft](https://disqt.com/minecraft/)"
+
     payload = {
-        "embeds": [{
+        "channel_id": channel_id,
+        "embed": {
             "title": f"Modpack {mc_version} v{version}",
             "description": description,
             "color": 0x2dd4bf,
-            "url": "https://disqt.com/minecraft/",
-            "footer": {"text": "disqt.com/minecraft"},
-        }]
+        },
     }
 
-    data = json.dumps(payload).encode("utf-8")
-    req = urllib.request.Request(
-        webhook_url,
-        data=data,
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
+    if role_id:
+        payload["content"] = f"<@&{role_id}>"
+
+    payload_json = json.dumps(payload, ensure_ascii=False)
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            if resp.status in (200, 204):
-                print("  Discord notification sent.")
-            else:
-                print(f"  Discord notification failed: HTTP {resp.status}")
+        ssh_cmd(
+            host,
+            f"curl -sf -X POST http://localhost:9800/send "
+            f"-H 'Content-Type: application/json' "
+            f"-d {shlex.quote(payload_json)}",
+        )
+        print("  Discord notification sent.")
     except Exception as e:
         print(f"  Discord notification failed: {e}")
 
@@ -392,10 +369,11 @@ def main():
             print("[dry-run] Would upload, update manifest, and notify.")
             return
 
-        confirm = input("Publish? [y/n] ").strip().lower()
-        if confirm != "y":
-            print("Aborted.")
-            return
+        if not args.yes:
+            confirm = input("Publish? [y/n] ").strip().lower()
+            if confirm != "y":
+                print("Aborted.")
+                return
 
         # Upload
         upload_zip(zip_path, config)
@@ -415,7 +393,7 @@ def main():
         print()
 
         # Discord notification (next task)
-        if not args.no_notify and config.get("discord_webhook"):
+        if not args.no_notify and config.get("discord_channel_id"):
             notify_discord(config, version, changelog)
 
         print(f"Released {mc_version} v{version}")

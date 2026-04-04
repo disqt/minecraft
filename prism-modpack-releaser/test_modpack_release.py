@@ -200,9 +200,8 @@ def test_changelog_initial_release(tmp_path):
     """No previous mods on VPS -> initial release."""
     inst = _make_instance(tmp_path)
     config = _mock_config()
-    with patch("modpack_release.get_previous_mod_list", return_value={}):
-        with patch("modpack_release.get_config_diff", return_value=[]):
-            changelog = generate_changelog(inst, config)
+    with patch("modpack_release.get_previous_zip_contents", return_value=(set(), set())):
+        changelog = generate_changelog(inst, config)
     assert changelog == ["Initial release"]
 
 
@@ -210,25 +209,20 @@ def test_changelog_detects_added_mod(tmp_path):
     inst = _make_instance(tmp_path)
     (inst / ".minecraft" / "mods" / "newmod-1.0.jar").write_bytes(b"jar")
     config = _mock_config()
-    old_jars = {"sodium-0.6.14.jar": "sodium-0.6.14.jar"}
-    with patch("modpack_release.get_previous_mod_list", return_value=old_jars):
-        with patch("modpack_release.get_config_diff", return_value=[]):
-            with patch("modpack_release.get_disquests_changelog", return_value=[]):
-                changelog = generate_changelog(inst, config)
+    old_jars = {"sodium-0.6.14.jar"}
+    with patch("modpack_release.get_previous_zip_contents", return_value=(old_jars, set())):
+        with patch("modpack_release.get_disquests_changelog", return_value=[]):
+            changelog = generate_changelog(inst, config)
     assert any("Added newmod" in line for line in changelog)
 
 
 def test_changelog_detects_removed_mod(tmp_path):
     inst = _make_instance(tmp_path)
     config = _mock_config()
-    old_jars = {
-        "sodium.jar": "sodium.jar",
-        "removed-mod-2.0.jar": "removed-mod-2.0.jar",
-    }
-    with patch("modpack_release.get_previous_mod_list", return_value=old_jars):
-        with patch("modpack_release.get_config_diff", return_value=[]):
-            with patch("modpack_release.get_disquests_changelog", return_value=[]):
-                changelog = generate_changelog(inst, config)
+    old_jars = {"sodium.jar", "removed-mod-2.0.jar"}
+    with patch("modpack_release.get_previous_zip_contents", return_value=(old_jars, set())):
+        with patch("modpack_release.get_disquests_changelog", return_value=[]):
+            changelog = generate_changelog(inst, config)
     assert any("Removed removed-mod-2.0.jar" in line for line in changelog)
 
 
@@ -238,9 +232,8 @@ def test_changelog_detects_updated_mod(tmp_path):
     (mods / "sodium.jar").unlink()
     (mods / "sodium-0.6.15.jar").write_bytes(b"new")
     config = _mock_config()
-    old_jars = {"sodium-0.6.14.jar": "sodium-0.6.14.jar"}
-    with patch("modpack_release.get_previous_mod_list", return_value=old_jars):
-        with patch("modpack_release.get_config_diff", return_value=[]):
-            with patch("modpack_release.get_disquests_changelog", return_value=[]):
-                changelog = generate_changelog(inst, config)
+    old_jars = {"sodium-0.6.14.jar"}
+    with patch("modpack_release.get_previous_zip_contents", return_value=(old_jars, set())):
+        with patch("modpack_release.get_disquests_changelog", return_value=[]):
+            changelog = generate_changelog(inst, config)
     assert any("Updated" in line and "0.6.14" in line and "0.6.15" in line for line in changelog)

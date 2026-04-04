@@ -3,7 +3,8 @@
   "vps_path": "/home/dev/prism",
   "mc_version": "1.21.11",
   "modloader": "Fabric",
-  "discord_webhook": "https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_WEBHOOK_TOKEN",
+  "discord_channel_id": "",
   "disquests_repo": "disqt/disquests",
+  "discord_role_id": "",
   "keep": 3
 }
